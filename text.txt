@@ -3,7 +3,17 @@ curl -X POST "http://localhost:8000/verify" \
   -d '{
     "url": "https://www.thepinknews.com/2025/11/03/zohran-mamdani-1am-stop-at-queer-bar-ahead-of-mayoral-election/",
     "title": "Zohran Mamdani gets rapturous reception as he makes 1am stop at queer bar ahead of mayoral election",
-    "subtext": ""
+    "subtext": "",
+    "postDate": "2025-11-03T12:24:47.083Z"
+  }'
+
+curl -X POST "http://localhost:8000/verify" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://apnews.com/article/cdc-autism-vaccines-7b1890f626dd5921fafd00fdd1e6425a",
+    "title": "CDC website changed to contradict scientific conclusion that vaccines dont cause autism",
+    "subtext": "",
+    "postDate": "2025-11-22T19:36:04.053Z"
   }'
 
 

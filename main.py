@@ -38,7 +38,11 @@ app = MCPApp(
 
 @app.tool()
 async def verify_content_agent(
-    url: str, title: str, subtext: str, app_ctx: Optional[AppContext] = None
+    url: str,
+    title: str,
+    subtext: str,
+    postDate: str,
+    app_ctx: Optional[AppContext] = None,
 ) -> dict:
     """
     Verify content from Reddit posts using Tavily to find reputable sources
@@ -47,6 +51,37 @@ async def verify_content_agent(
     logger = app_ctx.app.logger
     logger.info(f"Verifying content for URL: {url}")
     current_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Parse post date and calculate date range for source search
+    post_date_str = None
+    start_date = None
+    end_date = None
+
+    if postDate and postDate != "No date found":
+        try:
+            # Parse ISO format: "2025-11-03T12:24:47.083Z"
+            post_datetime = datetime.fromisoformat(postDate.replace("Z", "+00:00"))
+            post_date_str = post_datetime.strftime("%Y-%m-%d")
+
+            # Calculate date range: a few days before and 1-2 days after
+            from datetime import timedelta
+
+            start_date = (post_datetime - timedelta(days=3)).strftime(
+                "%Y-%m-%d"
+            )  # 3 days before
+            end_date = (post_datetime + timedelta(days=2)).strftime(
+                "%Y-%m-%d"
+            )  # 2 days after
+
+            logger.info(
+                f"Post date: {post_date_str}, Search range: {start_date} to {end_date}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to parse post date '{postDate}': {e}")
+            # Fallback: use relative time if it's in format like "19d ago"
+            if "ago" in postDate.lower():
+                # Could parse relative time here if needed
+                pass
 
     # List of reputable news sources for r/news and r/politics
     reputable_domains = [
@@ -82,31 +117,37 @@ async def verify_content_agent(
         name="content_verifier",
         instruction=(
             "You are a fact-checking assistant for r/news and r/politics subreddits. "
-            "CRITICAL: Information changes rapidly - you MUST search multiple time ranges to find the most current information.\n"
+            "CRITICAL: Information changes rapidly - you MUST search for sources around the time the post was made.\n"
+            f"{f'This post was made on {post_date_str}. Search for sources published between {start_date} and {end_date} to verify claims made around that time.' if post_date_str and start_date and end_date else 'Search for recent sources to verify this post.'}\n"
             "Use Tavily MCP tools with domain filters to:\n"
-            "1. ALWAYS perform MULTIPLE searches:\n"
-            "   - First: time_range 'day' (past 24 hours - breaking news)\n"
-            "   - Second: time_range 'week' (past 7 days - recent developments)\n"
-            "   - Third: time_range 'month' (if needed for context)\n"
-            "2. Search for reputable news sources using ONLY the following domains: "
-            f"{domains_str}\n"
+            "1. ALWAYS perform searches with date filters:\n"
+            f"   - start_date: '{start_date}' (if available)\n"
+            if start_date
+            else f"   - end_date: '{end_date}' (if available)\n"
+            if end_date
+            else ""
+            "   - This ensures you find sources published around the time the post was made\n"
+            "2. Search for reputable news sources"
             "3. When calling tavily_search, ALWAYS use:\n"
             "   - include_domains parameter with the list above\n"
-            "   - time_range parameter: Start with 'day', then 'week', then 'month' if needed\n"
+            f"   - start_date: '{start_date}' (sources after this date)\n"
+            if start_date
+            else f"   - end_date: '{end_date}' (sources before this date)\n"
+            if end_date
+            else ""
             "   - max_results: 10 to get comprehensive results\n"
-            "4. Compare results across time ranges - if 'day' results differ from 'week', recent sources are more accurate\n"
-            "5. Extract detailed content from the provided URL if it's from a reputable source\n"
-            "6. Check publication dates - prioritize sources from past 24-48 hours\n"
-            "7. Compare the claims with reputable sources, paying attention to WHEN sources were published\n"
-            "8. If information appears to have changed recently, note this explicitly\n"
-            "9. Only use sources from the approved domain list\n"
-            "10. If multiple sources exist, choose the MOST RECENT one (within past 24-48 hours if available)\n"
-            "11. Generate a verified summary with:\n"
+            "4. Extract detailed content from the provided URL if it's from a reputable source\n"
+            "5. Check publication dates - prioritize sources from the date range around the post date\n"
+            "6. Compare the claims with reputable sources, paying attention to WHEN sources were published relative to the post date\n"
+            "7. If information appears to have changed recently, note this explicitly\n"
+            "8. Only use sources from the approved domain list\n"
+            "9. If multiple sources exist, choose sources closest to the post date\n"
+            "10. Generate a verified summary with:\n"
             "   - Verified title and key points\n"
-            "   - Links to reputable sources (from approved domains only, prefer very recent)\n"
+            "   - Links to reputable sources (from approved domains only, prefer sources from around the post date)\n"
             "   - Any important context or corrections\n"
             "   - Fact-check status (verified/needs review/disputed)\n"
-            "   - Explicit mention of source dates and recency"
+            "   - Explicit mention of source dates and how they relate to the post date"
         ),
         server_names=["tavily"],  # Use Tavily MCP server
         context=app_ctx,
@@ -121,61 +162,55 @@ async def verify_content_agent(
         Title: {title}
         URL: {url}
         Subtext: {subtext}
+        {"Post Date: " + post_date_str + f" (search for sources between {start_date} and {end_date})" if post_date_str and start_date and end_date else ""}
 
         CRITICAL INSTRUCTIONS - Search Strategy:
 
         Today's date: {current_date}
-        When evaluating sources, prioritize sources from the past 24-48 hours relative to {current_date}.
+        {"The post was made on " + post_date_str + ". Look for sources published between " + start_date + " and " + end_date + " to verify claims made around that time." if post_date_str and start_date and end_date else "Search for recent sources to verify this post."}
 
-        You MUST perform MULTIPLE searches to find the most recent information:
+        You MUST perform searches with date filters to find sources from around the post date:
         
-        1. FIRST SEARCH - Breaking News (Past 24 Hours):
+        1. PRIMARY SEARCH - Sources Around Post Date:
            Call tavily_search with:
            - query: "{title}" or relevant keywords from the title
-           - include_domains: [{domains_str}]
-           - time_range: "day"
+           {'- start_date: "' + start_date + '" (sources published after this date)' if start_date else ""}
+           {'- end_date: "' + end_date + '" (sources published before this date)' if end_date else ""}
            - max_results: 10
-           - Analyze: Are there sources from the past 24 hours? What do they say?
+           - Analyze: Are there sources from around the post date? What do they say?
         
-        2. SECOND SEARCH - Recent News (Past Week):
+        2. FALLBACK SEARCH - Recent Sources (if primary search yields few results):
            Call tavily_search with:
            - query: Same as above
-           - include_domains: [{domains_str}]
            - time_range: "week"
            - max_results: 10
-           - Analyze: Compare with "day" results. Do they match? If not, recent sources are more accurate.
+           - DO NOT use include_domains - search across all domains
+           - Analyze: Compare with date-filtered results. Are they consistent?
         
-        3. THIRD SEARCH - Context (Past Month, if needed):
-           If the first two searches don't provide enough context, call tavily_search with:
-           - query: Same as above
-           - include_domains: [{domains_str}]
-           - time_range: "month"
-           - max_results: 5
-           - Analyze: Has information changed over time? What's the timeline?
-        
-        4. EXTRACT FROM URL:
+        3. EXTRACT FROM URL:
            Call tavily_extract with the provided URL to see what it actually says
            - Check the publication date
            - Compare with search results
+           - Verify if the URL's publication date aligns with the post date
         
-        5. COMPARISON & ANALYSIS:
-           - Compare information from "day" vs "week" vs "month" searches
-           - If "day" sources say something different than "week" sources, the "day" sources are more current
-           - Look for evidence of recent changes (elections, appointments, breaking news)
-           - Be aware: Political positions, job titles, and current events can change within hours or days
+        4. COMPARISON & ANALYSIS:
+           - Compare information from date-filtered sources vs recent sources
+           - If sources from around the post date say something different than recent sources, note this
+           - Look for evidence that supports or contradicts the post based on sources from that time period
+           - Example: If a post claims "Zohran Mamdani made a 1am stop at a bar ahead of the mayoral election on November 3rd", look for sources from November 2-5 that mention this event
         
-        6. SOURCE SELECTION:
-           - ALWAYS prefer sources from "day" search (past 24 hours) if available
-           - If no "day" sources, use "week" sources (past 7 days)
-           - Only use "month" sources if nothing more recent exists
-           - When selecting source_url, choose the MOST RECENT publication date available
+        5. SOURCE SELECTION:
+           - ALWAYS prefer sources from the date range around the post date ({start_date} to {end_date}) if available
+           - If no sources in that range, use recent sources but note the time gap
+           - When selecting source_url, choose sources closest to the post date
+           - Verify that the source publication date makes sense for the claim being made
         
         Return ONLY a valid JSON object with this exact structure:
         {{
         "is_correct": true/false,
-        "explanation": "2-line explanation. MUST include: (1) What recent sources say (mention dates), (2) Whether information has changed recently, (3) Why the post is correct/incorrect based on MOST RECENT information available. Example format: 'Recent sources from [date] indicate that [fact]. This contradicts earlier reports from [date] that stated [old fact].'",
-        "source_url": "MOST RECENT source URL from your searches (must be from past 24-48 hours if available, otherwise past week, from approved news domains only)",
-        "source_description": "1 sentence. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post. Format: 'This [source name] article published on [date] discusses [topic] and [how it relates to post].'"
+        "explanation": "2-line explanation. MUST include: (1) What sources from around the post date ({post_date_str if post_date_str else "the relevant time period"}) say (mention dates), (2) Whether the post's claims are supported by sources from that time, (3) Why the post is correct/incorrect based on sources from around the post date. Example format: 'Sources from [date range] indicate that [fact]. This [supports/contradicts] the post's claim that [claim].'",
+        "source_url": "MUST be a real URL from your Tavily search results. Prefer well-known, reputable news sources, but use any relevant source that provides accurate information. If no valid sources were found from your searches, use an empty string \"\" or the original post URL. NEVER use placeholder URLs like 'example.com', 'test.com', or any fake URLs.",
+        "source_description": "1 sentence. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post and the post date. If no valid source was found, state 'No reputable sources found from the specified date range.' Format: 'This [source name] article published on [date] discusses [topic] and [how it relates to post]. The publication date is [before/on/after] the post date of {post_date_str if post_date_str else "N/A"}, which [supports/contradicts] the post's timeline.'"
         }}
 
         Do not include any text before or after the JSON.

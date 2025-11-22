@@ -56,6 +56,7 @@ class VerifyRequest(BaseModel):
     url: str
     title: str
     subtext: str
+    postDate: str  # Add this field
 
 
 class VerifyResponse(BaseModel):
@@ -94,6 +95,7 @@ async def verify_content(request: VerifyRequest):
             url=request.url,
             title=request.title,
             subtext=request.subtext,
+            postDate=request.postDate,
             app_ctx=app_context,
         )
         

@@ -22,6 +22,38 @@ async function addNoteToPost(post) {
   }
 
   // Extract data
+  const timeElement =
+    post.querySelector('time[datetime]') ||
+    post.querySelector('faceplate-timeago[ts]') ||
+    post.querySelector('span[data-testid="post_timestamp"]') ||
+    post.querySelector('time') ||
+    post.querySelector('span:has-text("ago")') ||
+    Array.from(post.querySelectorAll('span, time')).find(
+      (el) =>
+        el.textContent.includes('ago') &&
+        el.textContent.match(/\d+\s*(mo|h|d|m|y|s)\s*ago/i)
+    );
+
+  let postDate = 'No date found';
+  if (timeElement) {
+    // Try to get the datetime attribute first (ISO format)
+    const datetime =
+      timeElement.getAttribute('datetime') ||
+      timeElement.getAttribute('ts') ||
+      timeElement.getAttribute('title');
+
+    if (datetime) {
+      postDate = datetime; // ISO timestamp
+    } else {
+      // Fall back to the relative time text
+      postDate = timeElement.textContent.trim();
+    }
+  }
+
+  // Add this for debugging:
+  console.log('Post Date:', postDate);
+  console.log('Time Element Found:', timeElement);
+  console.log('Time Element HTML:', timeElement?.outerHTML);
   const titleElement =
     post.querySelector('h1') ||
     post.querySelector('a[data-testid="post-title"]') ||
@@ -104,6 +136,7 @@ async function addNoteToPost(post) {
         url: url,
         title: title,
         subtext: subtext,
+        postDate: postDate,
       }),
     });
 
