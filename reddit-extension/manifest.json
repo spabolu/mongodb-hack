@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Reddit Community Notes",
+  "version": "1.0",
+  "description": "Adds a community note-like box under Reddit posts with extracted title, URL, and subtext.",
+  "permissions": ["activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.reddit.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
