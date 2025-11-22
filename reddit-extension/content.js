@@ -1,8 +1,27 @@
 // === POLISHED COMMUNITY NOTE FOR REDDIT ===
 // Works on both feed and single-post pages
 
-function addNoteToPost(post) {
-  // Extract data (same reliable selectors as before)
+async function addNoteToPost(post) {
+  const currentUrl = window.location.href; // ← Changed from 'url' to 'currentUrl'
+  const urlMatch = currentUrl.match(/\/r\/([^\/]+)/); // ← Use 'currentUrl' here
+  const subreddit = urlMatch ? urlMatch[1] : null;
+
+  // Method 2: Check post element for subreddit link
+  const subredditElement = post.querySelector(
+    'a[data-testid="subreddit-link"], a[href^="/r/"]'
+  );
+  const postSubreddit = subredditElement
+    ? subredditElement.getAttribute('href').match(/\/r\/([^\/]+)/)?.[1]
+    : null;
+
+  const finalSubreddit = postSubreddit || subreddit;
+
+  // Only process r/news and r/politics
+  if (finalSubreddit !== 'news' && finalSubreddit !== 'politics') {
+    return;
+  }
+
+  // Extract data
   const titleElement =
     post.querySelector('h1') ||
     post.querySelector('a[data-testid="post-title"]') ||
@@ -28,10 +47,14 @@ function addNoteToPost(post) {
       (subtextElement.textContent.trim().length > 300 ? '…' : '')
     : 'No subtext found';
 
-  // === Create the beautiful Community Note ===
-  const noteDiv = document.createElement('div');
-  noteDiv.className = 'reddit-community-note'; // For duplicate prevention
+  // Skip if no URL found
+  if (url === 'No URL found') {
+    return;
+  }
 
+  // Create loading note
+  const noteDiv = document.createElement('div');
+  noteDiv.className = 'reddit-community-note';
   noteDiv.style.cssText = `
     margin: 16px 0;
     padding: 16px;
@@ -44,7 +67,6 @@ function addNoteToPost(post) {
     color: #1c1c1c;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   `;
-
   noteDiv.innerHTML = `
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:600; color:#1a1a1b;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="2.5" style="flex-shrink:0;">
@@ -52,52 +74,12 @@ function addNoteToPost(post) {
         <path d="M12 8v4"></path>
         <circle cx="12" cy="16" r="1"></circle>
       </svg>
-      Community Note
+      AI Truth Checker
     </div>
-
-    <div style="color:#57606a; margin-bottom:12px;">
-      Readers added context they thought people might want to know.
-    </div>
-
-    ${
-      title !== 'No title found'
-        ? `
-      <div style="margin-bottom:8px;">
-        <strong>Title:</strong> ${escapeHtml(title)}
-      </div>`
-        : ''
-    }
-
-    ${
-      url !== 'No URL found'
-        ? `
-      <div style="margin-bottom:8px;">
-        <strong>Source URL:</strong> 
-        <a href="${url}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none;">
-          ${url
-            .replace(/^https?:\/\//, '')
-            .replace(/\/$/, '')
-            .substring(0, 60)}${url.length > 60 ? '…' : ''}
-        </a>
-      </div>`
-        : ''
-    }
-
-    ${
-      subtext !== 'No subtext found'
-        ? `
-      <div>
-        <strong>Post text:</strong> ${escapeHtml(subtext)}
-      </div>`
-        : ''
-    }
-      
-    <div style="margin-top:16px; font-size:12px; color:#57606a;">
-      This is a demo extension • Context is shown automatically
-    </div>
+    <div style="color:#57606a;">Verifying...</div>
   `;
 
-  // Insert right above the engagement bar
+  // Insert loading note
   const upvoteButton = post.querySelector(
     'button[aria-label="Upvote"], button[data-click-id="upvote"]'
   );
@@ -110,6 +92,92 @@ function addNoteToPost(post) {
   } else {
     post.appendChild(noteDiv);
   }
+
+  // Call API
+  try {
+    const response = await fetch('http://localhost:8000/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: url,
+        title: title,
+        subtext: subtext,
+      }),
+    });
+
+    const data = await response.json();
+
+    // Update note with formatted output
+    const isCorrect = data.is_correct;
+    const statusColor =
+      isCorrect === true
+        ? '#28a745'
+        : isCorrect === false
+        ? '#dc3545'
+        : '#6c757d';
+    const statusText =
+      isCorrect === true
+        ? 'Correct'
+        : isCorrect === false
+        ? 'Not Correct'
+        : 'Unable to Verify';
+
+    noteDiv.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:600; color:#1a1a1b;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d9bf0" stroke-width="2.5" style="flex-shrink:0;">
+          <path d="M12 2a10 10 0 100 20 10 10 0 000-20z"></path>
+          <path d="M12 8v4"></path>
+          <circle cx="12" cy="16" r="1"></circle>
+        </svg>
+        AI Truth Checker
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <strong style="color:#1a1a1b;">Is the post correct or not?</strong>
+        <div style="margin-top:8px; padding:8px; background:${statusColor}15; border-left:3px solid ${statusColor}; border-radius:4px;">
+          <div style="font-weight:600; color:${statusColor}; margin-bottom:4px;">${statusText}</div>
+          <div style="color:#1c1c1c; white-space:pre-line;">${escapeHtml(
+            data.explanation || 'No explanation available'
+          )}</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e1e4e8;">
+        <strong style="color:#1a1a1b; display:block; margin-bottom:8px;">What sources were used to validate?</strong>
+        <div style="margin-bottom:4px;">
+          <a href="${escapeHtml(
+            data.source_url || url
+          )}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none; word-break:break-all;">
+            ${escapeHtml(
+              (data.source_url || url)
+                .replace(/^https?:\/\//, '')
+                .replace(/\/$/, '')
+                .substring(0, 60)
+            )}${(data.source_url || url).length > 60 ? '…' : ''}
+          </a>
+        </div>
+        <div style="color:#57606a; font-size:13px; margin-top:4px;">
+          ${escapeHtml(
+            data.source_description || 'No source description available'
+          )}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    noteDiv.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:600; color:#1a1a1b;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2.5" style="flex-shrink:0;">
+          <path d="M12 2a10 10 0 100 20 10 10 0 000-20z"></path>
+          <path d="M12 8v4"></path>
+          <circle cx="12" cy="16" r="1"></circle>
+        </svg>
+        AI Truth Checker
+      </div>
+      <div style="color:#dc3545;">Error: Unable to verify content. ${error.message}</div>
+    `;
+  }
 }
 
 // Simple HTML escape (security)
@@ -120,12 +188,13 @@ function escapeHtml(text) {
 }
 
 // Process posts
-function processPosts() {
-  document.querySelectorAll('shreddit-post').forEach((post) => {
+async function processPosts() {
+  const posts = document.querySelectorAll('shreddit-post');
+  for (const post of posts) {
     if (!post.querySelector('.reddit-community-note')) {
-      addNoteToPost(post);
+      await addNoteToPost(post);
     }
-  });
+  }
 }
 
 // Run on load + observe changes

@@ -1,0 +1,21 @@
+curl -X POST "http://localhost:8000/verify" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.thepinknews.com/2025/11/03/zohran-mamdani-1am-stop-at-queer-bar-ahead-of-mayoral-election/",
+    "title": "Zohran Mamdani gets rapturous reception as he makes 1am stop at queer bar ahead of mayoral election",
+    "subtext": ""
+  }'
+
+
+{
+    "is_correct":
+      false,
+    "explanation": 
+      "The provided URL appears to be broken or non-existent, and there are no reputable sources indicating Zohran Mamdani is running for mayor or made such an appearance. He is currently a New York State Assemblymember, not a mayoral candidate.",
+    "source_url":
+      "https://assembly.state.ny.us/mem/Zohran-K-Mamdani",
+    "source_description":
+      "This is the official New York State Assembly website for Zohran K. Mamdani, detailing his current role and official information, which does not mention a mayoral candidacy.",
+    "status": 
+      "success"
+}% 

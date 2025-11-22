@@ -4,9 +4,10 @@
   "version": "1.0",
   "description": "Adds a community note-like box under Reddit posts with extracted title, URL, and subtext.",
   "permissions": ["activeTab"],
+  "host_permissions": ["http://localhost:8000/*"],
   "content_scripts": [
     {
-      "matches": ["*://*.reddit.com/*"],
+      "matches": ["*://*.reddit.com/r/news/*", "*://*.reddit.com/r/politics/*"],
       "js": ["content.js"],
       "run_at": "document_end"
     }
