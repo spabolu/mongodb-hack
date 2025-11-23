@@ -1,0 +1,139 @@
+# Reddit Community Notes – AI-powered Truth Checker
+
+This project augments Reddit with an AI-powered “Truth Checker” that runs directly in the browser.  
+It consists of three main pieces:
+
+1. **Frontend Chrome Extension** (`reddit-extension/`): injects a panel into eligible Reddit posts (r/news, r/politics, r/TheOnion) and calls the backend to display the verification results.
+2. **Backend FastAPI Server** (`api_server.py`, `main.py`): wraps the `mcp-agent` example app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
+3. **AI + MCP Tooling**: Tavily MCP server for search, `mcp-agent` for workflow management, and OpenAI/Gemini LLM backends via augmented LLMs.
+
+## Example Screenshot
+<table>
+  <tr>
+    <td>
+      <img src="./SCR-20251123-mifh.png" alt="Real news post" width="100%">
+    </td>
+    <td>
+      <img src="./SCR-20251123-mhmi.png" alt="Fake/satire news post" width="100%">
+    </td>
+  </tr>
+</table>
+
+
+---
+
+## Frontend (Chrome Extension)
+
+* Lives in `reddit-extension/`.
+* Injects Twitter's "Community Notes"-style card into each Reddit post that matches the supported subreddits.
+* Sends a POST request to `/verify` endpoint with the post URL, title, subtext, and detected timestamp.
+* Renders the structured response (verdict + sources) returned by the backend.
+
+### Running the extension
+
+1. Build/prepare the backend first (see next section).
+2. In Chrome, open `chrome://extensions`, enable **Developer Mode**, then **Load unpacked**.
+3. Select the `reddit-extension/` folder.
+4. Visit Reddit and verify posts to see the injected panel.
+
+Try this Reddit post as an example: https://www.reddit.com/r/news/comments/1p33pck/france_will_investigate_musks_grok_chatbot_after/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
+
+---
+
+## Backend (FastAPI + MCP Agent)
+
+* The core logic lives in `main.py` (adapted `mcp-agent` example).
+* `api_server.py` wraps the MCP app with FastAPI and exposes `/verify`.
+* Uses Tavily MCP server to fetch reputable sources and OpenAI/Gemini LLMs (via `OpenAIAugmentedLLM`).
+
+### Prerequisites
+
+* Python 3.11+
+* [uv](https://github.com/astral-sh/uv) for managing the virtual environment.
+* Tavily API key and LLM provider API keys (OpenAI/Gemini) — stored in secrets files / `.env`.
+* Highly recommend using OpenAI `gpt-5-mini-2025-08-07` model for best performance.
+
+### Installation & Running
+
+```bash
+# Install dependencies
+uv sync
+
+# Start the FastAPI server
+uv run uvicorn api_server:fastapi_app --reload
+# Or run this command
+uv run python api_server.py
+```
+
+The server listens on `http://0.0.0.0:8000`. The browser extension should point there for verification requests.
+
+---
+
+## AI Libraries / Services
+
+| Component | Purpose |
+|-----------|---------|
+| **Tavily MCP server** | Performs date-bounded searches on reputable domains, returning structured search results. |
+| **mcp-agent** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
+| **OpenAI / Gemini LLMs** | Reason over Tavily results, enforce JSON schema, and summarize verification. `OpenAIAugmentedLLM` is currently configured with the `gpt-5-mini-2025-08-07` model. |
+
+The workflow enforces:
+* Date filters aligned with the Reddit post timestamp.
+* Reputable domain whitelists.
+* Satire/fake-source detection (don’t treat original satire articles as “proof”).
+* Returning multiple independent sources with descriptions.
+
+---
+
+## Configuration & Secrets
+
+### `.env`
+
+Create a `.env` in the repo root. Structure as follows:
+
+```env
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AIza...
+TAVILY_API_KEY=tvly-...
+```
+
+`uv` automatically reads `.env` files when running commands. The FastAPI server and MCP config reference these environment variables.
+
+### `mcp_agent.config.yaml`
+
+* Core MCP agent configuration (logger, MCP servers, agent definitions, default models).
+* Update the `openai.default_model` or add other provider defaults if needed.
+* Tavily server uses `python -m mcp_server_tavily` and expects `TAVILY_API_KEY` in the environment.
+
+### `mcp_agent.secrets.yaml`
+
+* Stores provider API keys and MCP server env overrides.
+* Structure as follows:
+
+```yaml
+openai:
+  api_key: "${OPENAI_API_KEY}"
+google:
+  api_key: "${GOOGLE_API_KEY}"
+
+mcp:
+  servers:
+    tavily:
+      env:
+        TAVILY_API_KEY: "${TAVILY_API_KEY}"
+```
+
+> Never commit real keys. Reference environment variables via `${VAR_NAME}` and keep the `.env` local.
+
+---
+
+## Development Workflow
+
+1. Update dependencies or code.
+2. Run `uv run python main.py` (or the specific test script) to ensure the agent still returns valid JSON with at least two sources.
+3. Start the FastAPI server (`uv run uvicorn api_server:fastapi_app --reload`).
+4. Load the Chrome extension and verify posts.
+5. Check the terminal logs for “LLM Raw Response” and “Parsed JSON” to debug any schema issues.
+
+With this setup, you can quickly iterate on the Chrome UI, backend logic, or the MCP/L LM instructions to improve verification quality.
+
