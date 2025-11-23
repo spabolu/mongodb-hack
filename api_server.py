@@ -6,6 +6,7 @@ This allows the browser extension to call the agent via REST API.
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -16,6 +17,11 @@ from pydantic import BaseModel
 # Import your mcp-agent app and tools
 from main import app as mcp_app, verify_content_agent
 from mcp_agent.core.context import Context as AppContext
+
+# Import MongoDB cache functions
+from db.cache import get_cached_verification, store_verification
+from db.init_indexes import ensure_indexes
+from db.mongodb import close_mongodb_connection
 
 # Global variable to hold the app context
 app_context: Optional[AppContext] = None
@@ -29,8 +35,19 @@ async def lifespan(app: FastAPI):
     # Start the mcp-agent app and get context
     async with mcp_app.run() as agent_app:
         app_context = agent_app.context
+
+        # Initialize MongoDB indexes
+        try:
+            await ensure_indexes()
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"MongoDB index initialization failed: {e}. App will continue without cache."
+            )
+
         yield  # Keep running
         # Cleanup happens here when server shuts down
+        await close_mongodb_connection()
 
 
 # Create FastAPI app
@@ -97,15 +114,38 @@ async def verify_content(request: VerifyRequest):
         )
 
     try:
-        # Call your verify_content_agent tool
-        result = await verify_content_agent(
-            url=request.url,
-            title=request.title,
-            subtext=request.subtext,
-            postDate=request.postDate,
-            app_ctx=app_context,
-        )
-        
+        # Check cache first
+        cached_result = None
+        try:
+            cached_result = await get_cached_verification(request.url)
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Cache lookup failed: {e}. Proceeding with verification.")
+
+        if cached_result:
+            # Cache hit - return cached result
+            result = cached_result
+        else:
+            # Cache miss - perform verification
+            result = await verify_content_agent(
+                url=request.url,
+                title=request.title,
+                subtext=request.subtext,
+                postDate=request.postDate,
+                app_ctx=app_context,
+            )
+
+            # Store result in cache (non-blocking) if valid verification
+            if result.get("is_correct") is not None or result.get("explanation"):
+                try:
+                    await store_verification(request.url, result)
+                except Exception as e:
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Cache storage failed: {e}. Result still returned to user.")
+            else:
+                logger = logging.getLogger(__name__)
+                logger.info(f"Verification inconclusive, skipping cache for URL: {request.url}")
+
         raw_sources = result.get("sources") or []
 
         # Backwards compatibility: if old keys exist, convert them

@@ -70,7 +70,7 @@ agents:
 
 # Model provider defaults (API keys go in mcp_agent.secrets.yaml)
 openai:
-  default_model: gpt-5-mini-2025-08-07
+  default_model: gpt-5.1-2025-11-13
 
 # anthropic:
 #   default_model: claude-sonnet-4-0

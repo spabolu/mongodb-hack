@@ -68,6 +68,7 @@ It consists of three main pieces:
 * Python 3.11+
 * [uv](https://github.com/astral-sh/uv) for managing the virtual environment.
 * Tavily API key and LLM provider API keys (OpenAI/Gemini) — stored in secrets files / `.env`.
+* MongoDB (Atlas or local) — optional but recommended for caching verification results.
 * Highly recommend using OpenAI `gpt-5-mini-2025-08-07` model for best performance.
 
 ### Installation & Running
@@ -112,9 +113,45 @@ Create a `.env` in the repo root. Structure as follows:
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AIza...
 TAVILY_API_KEY=tvly-...
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/reddit_verifier?retryWrites=true&w=majority
 ```
 
 `uv` automatically reads `.env` files when running commands. The FastAPI server and MCP config reference these environment variables.
+
+### MongoDB Setup (Optional but Recommended)
+
+MongoDB is used to cache verification results, reducing API costs and improving response times for repeated post verifications.
+
+#### Option 1: MongoDB Atlas (Cloud - Recommended)
+
+1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a new cluster (free tier M0 is sufficient)
+3. Create a database user and set a password
+4. Add your IP address to the network access list (or use `0.0.0.0/0` for development)
+5. Click "Connect" → "Connect your application" → Copy the connection string
+6. Replace `<password>` with your database user password and `<dbname>` with `reddit_verifier`
+7. Add the connection string to your `.env` file as `MONGODB_URI`
+
+Example connection string format:
+```
+mongodb+srv://username:password@cluster.mongodb.net/reddit_verifier?retryWrites=true&w=majority
+```
+
+#### Option 2: Local MongoDB
+
+If you have MongoDB installed locally:
+
+1. Start MongoDB: `mongod` (or `brew services start mongodb-community` on macOS)
+2. Add to `.env`: `MONGODB_URI=mongodb://localhost:27017/reddit_verifier`
+
+#### Cache Behavior
+
+- **Cache Key**: SHA256 hash of normalized URL (handles URL variations)
+- **TTL**: 30 days (results auto-expire)
+- **Graceful Degradation**: If MongoDB is unavailable, verification still works (just without caching)
+- **Indexes**: Automatically created on first startup (TTL index on `expires_at`, unique index on `cache_key`)
+
+The cache significantly reduces API costs when the same Reddit posts are verified multiple times.
 
 ### `mcp_agent.config.yaml`
 
