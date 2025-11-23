@@ -187,6 +187,7 @@ async def verify_content_agent(
                {'- start_date: "' + start_date + '" (sources published after this date)' if start_date else ""}
                {'- end_date: "' + end_date + '" (sources published before this date)' if end_date else ""}
                - max_results: 10
+               - exclude_domains: ["reddit.com"] 
                - Analyze: Are there sources from around the post date? What do they say?
             
             2. FALLBACK SEARCH - Recent Sources (if primary search yields few results):
@@ -195,10 +196,13 @@ async def verify_content_agent(
                - time_range: "week"
                - max_results: 10
                - DO NOT use include_domains - search across all domains
+               - exclude_domains: ["reddit.com"]
                - Analyze: Compare with date-filtered results. Are they consistent?
             
             3. EXTRACT FROM URL:
-               Call tavily_extract with the provided URL to see what it actually says
+               Call tavily_extract with the provided URL to see what it actually says. 
+               This URL is the Reddit post content provided for context. 
+               Use this to understand the claims being made, BUT do not use it as a verification source itself.
                - CRITICAL: When checking publication date, look for:
                  * Metadata fields like "publishedDate", "datePublished", "publishDate"
                  * URL structure that might indicate date (e.g., /2025/11/22/)
@@ -221,6 +225,7 @@ async def verify_content_agent(
                - If no sources in that range, use recent sources but note the time gap
                - When selecting source_url, choose sources closest to the post date
                - Verify that the source publication date makes sense for the claim being made
+               - CRITICAL: Do NOT use the original Reddit post URL as the source_url for validation. Use an independent news source found via search.
             
             Return ONLY a valid JSON object with this exact structure:
             {{
