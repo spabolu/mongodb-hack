@@ -144,9 +144,10 @@ async def verify_content_agent(
             if end_date
             else ""
             "   - This ensures you find sources published around the time the post was made\n"
-            "2. Search for reputable news sources"
+            "2. Search for reputable news sources using topic='news'\n"
             "3. When calling tavily_search, ALWAYS use:\n"
             "   - include_domains parameter with the list above\n"
+            "   - topic: 'news' to get news articles\n"
             f"   - start_date: '{start_date}' (sources after this date)\n"
             if start_date
             else f"   - end_date: '{end_date}' (sources before this date)\n"
@@ -201,6 +202,7 @@ async def verify_content_agent(
             1. PRIMARY SEARCH - Sources Around Post Date:
                Call tavily_search with:
                - query: "{title}" or relevant keywords from the title
+               - topic: "news"
                {'- start_date: "' + start_date + '" (sources published after this date)' if start_date else ""}
                {'- end_date: "' + end_date + '" (sources published before this date)' if end_date else ""}
                - max_results: 10
@@ -210,6 +212,7 @@ async def verify_content_agent(
             2. FALLBACK SEARCH - Recent Sources (if primary search yields few results):
                Call tavily_search with:
                - query: Same as above
+               - topic: "news"
                - time_range: "week"
                - max_results: 10
                - DO NOT use include_domains - search across all domains
