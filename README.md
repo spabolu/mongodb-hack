@@ -118,11 +118,11 @@ MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/reddit_verifier?
 
 `uv` automatically reads `.env` files when running commands. The FastAPI server and MCP config reference these environment variables.
 
-### MongoDB Setup (Optional but Recommended)
+### MongoDB Setup
 
 MongoDB is used to cache verification results, reducing API costs and improving response times for repeated post verifications.
 
-#### Option 1: MongoDB Atlas (Cloud - Recommended)
+#### MongoDB Atlas
 
 1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
 2. Create a new cluster (free tier M0 is sufficient)
@@ -136,13 +136,6 @@ Example connection string format:
 ```
 mongodb+srv://username:password@cluster.mongodb.net/reddit_verifier?retryWrites=true&w=majority
 ```
-
-#### Option 2: Local MongoDB
-
-If you have MongoDB installed locally:
-
-1. Start MongoDB: `mongod` (or `brew services start mongodb-community` on macOS)
-2. Add to `.env`: `MONGODB_URI=mongodb://localhost:27017/reddit_verifier`
 
 #### Cache Behavior
 
