@@ -59,11 +59,18 @@ class VerifyRequest(BaseModel):
     postDate: str  # Add this field
 
 
+class SourceItem(BaseModel):
+    source_url: str
+    source_description: str
+
+
 class VerifyResponse(BaseModel):
     is_correct: bool | None
     explanation: str
-    source_url: str
-    source_description: str
+    sources: list[SourceItem]
+    # Backwards compatibility fields for older extension versions
+    source_url: str | None = None
+    source_description: str | None = None
     status: str = "success"
 
 
@@ -99,13 +106,39 @@ async def verify_content(request: VerifyRequest):
             app_ctx=app_context,
         )
         
-        # result is now a dict, not a string
+        raw_sources = result.get("sources") or []
+
+        # Backwards compatibility: if old keys exist, convert them
+        if not raw_sources and result.get("source_url"):
+            raw_sources = [
+                {
+                    "source_url": result.get("source_url", ""),
+                    "source_description": result.get("source_description", ""),
+                }
+            ]
+
+        # Ensure all sources have required fields and are not empty strings
+        normalized_sources: list[SourceItem] = []
+        for source in raw_sources:
+            url = (source or {}).get("source_url", "").strip()
+            desc = (source or {}).get("source_description", "").strip()
+            if url:
+                normalized_sources.append(
+                    SourceItem(source_url=url, source_description=desc)
+                )
+
+        primary_source_url = normalized_sources[0].source_url if normalized_sources else ""
+        primary_source_description = (
+            normalized_sources[0].source_description if normalized_sources else ""
+        )
+
         return VerifyResponse(
             is_correct=result.get("is_correct"),
             explanation=result.get("explanation", ""),
-            source_url=result.get("source_url", ""),
-            source_description=result.get("source_description", ""),
-            status="success"
+            sources=normalized_sources,
+            source_url=primary_source_url,
+            source_description=primary_source_description,
+            status="success",
         )
 
     except Exception as e:

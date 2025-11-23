@@ -184,23 +184,33 @@ async function addNoteToPost(post) {
 
       <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e1e4e8;">
         <strong style="color:#1a1a1b; display:block; margin-bottom:8px;">What sources were used to validate?</strong>
-        <div style="margin-bottom:4px;">
-          <a href="${escapeHtml(
-            data.source_url || url
-          )}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none; word-break:break-all;">
-            ${escapeHtml(
-              (data.source_url || url)
-                .replace(/^https?:\/\//, '')
-                .replace(/\/$/, '')
-                .substring(0, 60)
-            )}${(data.source_url || url).length > 60 ? '…' : ''}
-          </a>
-        </div>
-        <div style="color:#57606a; font-size:13px; margin-top:4px;">
-          ${escapeHtml(
-            data.source_description || 'No source description available'
-          )}
-        </div>
+        ${
+          data.sources && data.sources.length > 0
+            ? data.sources.map(source => `
+              <div style="margin-bottom:16px;">
+                <div style="margin-bottom:4px;">
+                  <a href="${escapeHtml(source.source_url)}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none; word-break:break-all;">
+                    ${escapeHtml(source.source_url.replace(/^https?:\/\//, '').replace(/\/$/, '').substring(0, 60))}${source.source_url.length > 60 ? '…' : ''}
+                  </a>
+                </div>
+                <div style="color:#57606a; font-size:13px; margin-top:4px;">
+                  ${escapeHtml(source.source_description || 'No description available')}
+                </div>
+              </div>
+            `).join('')
+            : `
+              <div style="margin-bottom:16px;">
+                 <div style="margin-bottom:4px;">
+                  <a href="${escapeHtml(data.source_url || url)}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none; word-break:break-all;">
+                    ${escapeHtml((data.source_url || url).replace(/^https?:\/\//, '').replace(/\/$/, '').substring(0, 60))}${(data.source_url || url).length > 60 ? '…' : ''}
+                  </a>
+                </div>
+                <div style="color:#57606a; font-size:13px; margin-top:4px;">
+                  ${escapeHtml(data.source_description || 'No source description available')}
+                </div>
+              </div>
+            `
+        }
       </div>
     `;
   } catch (error) {

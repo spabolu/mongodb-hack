@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Optional
+from urllib.parse import urlparse
 
 from mcp_agent.app import MCPApp
 from mcp_agent.agents.agent import Agent
@@ -111,8 +112,24 @@ async def verify_content_agent(
         "economist.com",         # Slight center-left global tilt but excellent fact-checking
     ]
 
+    satire_domains = [
+        "theonion.com",
+        "babylonbee.com",
+        "clickhole.com",
+        "thebeaverton.com",
+        "waterfordwhispersnews.com",
+        "newsbiscuit.com",
+    ]
+
     # Convert to string for prompt
     domains_str = ", ".join(reputable_domains)
+    satire_domains_str = ", ".join(satire_domains)
+    post_domain = (
+        urlparse(url).netloc.replace("www.", "").lower()
+        if url not in (None, "")
+        else "unknown"
+    )
+    is_known_satire = post_domain in satire_domains
     agent = Agent(
         name="content_verifier",
         instruction=(
@@ -199,6 +216,13 @@ async def verify_content_agent(
                - exclude_domains: ["reddit.com"]
                - Analyze: Compare with date-filtered results. Are they consistent?
             
+            SATIRE / FAKE SOURCE CHECK:
+            - Known satire domains: [{satire_domains_str}]
+            - This Reddit post references domain: "{post_domain}".
+            - If the post domain is a known satire/fake outlet ({'YES' if is_known_satire else 'NO'}) or the content itself reads like satire, explicitly call this out in the explanation.
+            - Prioritize reputable fact-checkers or straight news outlets (AP, Reuters, AFP Fact Check, Snopes, etc.) that confirm whether the claim started as satire/misinformation.
+            - NEVER treat the satire article itself as validation — it is only context. Use independent news/fact-checking sources that explain the truth.
+            
             3. EXTRACT FROM URL:
                Call tavily_extract with the provided URL to see what it actually says. 
                This URL is the Reddit post content provided for context. 
@@ -226,41 +250,126 @@ async def verify_content_agent(
                - When selecting source_url, choose sources closest to the post date
                - Verify that the source publication date makes sense for the claim being made
                - CRITICAL: Do NOT use the original Reddit post URL as the source_url for validation. Use an independent news source found via search.
+               - If the underlying claim stems from a satire/fake outlet ({'YES' if is_known_satire else 'NO'}), cite reputable sources that clearly state it is satire/fake or otherwise debunk/clarify the claim.
             
-            Return ONLY a valid JSON object with this exact structure:
+            Return ONLY a valid JSON object with this exact structure (NO EXTRA TEXT):
             {{
             "is_correct": true/false,
-            "explanation": "2-line explanation. MUST include: (1) What sources from around the post date ({post_date_str if post_date_str else "the relevant time period"}) say (mention dates), (2) Whether the post's claims are supported by sources from that time, (3) Why the post is correct/incorrect based on sources from around the post date. Example format: 'Sources from [date range] indicate that [fact]. This [supports/contradicts] the post's claim that [claim].'",
-            "source_url": "MUST be a real URL from your Tavily search results. Prefer well-known, reputable news sources, but use any relevant source that provides accurate information. If no valid sources were found from your searches, use an empty string \"\" or the original post URL. NEVER use placeholder URLs like 'example.com', 'test.com', or any fake URLs.",
-            "source_description": "1 sentence. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post and the post date. If no valid source was found, state 'No reputable sources found from the specified date range.' Format: 'This [source name] article published on [date] discusses [topic] and [how it relates to post]. The publication date is [before/on/after] the post date of {post_date_str if post_date_str else "N/A"}, which [supports/contradicts] the post's timeline.'"
+            "explanation": "2-line explanation...",
+            "sources": [
+                {{
+                    "source_url": "First URL from Tavily search - MUST be a real URL, not a placeholder. Prefer well-known reputable news sources. MUST NOT be the same as the Reddit post URL: {url}",
+                    "source_description": "1 sentence for source 1. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post. Format: 'This [source name] article published on [exact date] discusses [topic] and [supports/contradicts] the post's claim.'"
+                }},
+                {{
+                    "source_url": "Second DIFFERENT URL from Tavily search - MUST be distinct from the first source. Prefer well-known reputable news sources. MUST NOT be the same as the Reddit post URL: {url}",
+                    "source_description": "1 sentence for source 2. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post. Format: 'This [source name] article published on [exact date] discusses [topic] and [supports/contradicts] the post's claim.'"
+                }}
+            ]
             }}
 
-            Do not include any text before or after the JSON.
+            IMPORTANT: Provide EXACTLY 2 sources in the sources array. Ensure both sources are distinct and NEITHER is the original Reddit post URL.
+            If you cannot find 2 independent sources, provide 1, but do NOT hallucinate or use the Reddit link as a source.
             """
 
             result = await llm.generate_str(message=prompt)
+            logger.info(f"LLM Raw Response: {result}")
 
-            # Extract JSON from response (LLM might add extra text)
-            json_match = re.search(r"\{.*\}", result, re.DOTALL)
-            if json_match:
+            # Extract JSON from response (LLM might add extra text or markdown code blocks)
+            # First, try to strip markdown code blocks
+            cleaned_result = result.strip()
+            if cleaned_result.startswith('```'):
+                # Remove markdown code fences
+                lines = cleaned_result.split('\n')
+                # Remove first line if it's a code fence
+                if lines[0].startswith('```'):
+                    lines = lines[1:]
+                # Remove last line if it's a code fence
+                if lines and lines[-1].startswith('```'):
+                    lines = lines[:-1]
+                cleaned_result = '\n'.join(lines).strip()
+            
+            # Find the first '{' and the last '}'
+            start_idx = cleaned_result.find('{')
+            end_idx = cleaned_result.rfind('}')
+            
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = cleaned_result[start_idx : end_idx + 1]
                 try:
-                    parsed_result = json.loads(json_match.group())
+                    parsed_result = json.loads(json_str)
+                    logger.info(f"Parsed JSON: {json.dumps(parsed_result, indent=2)}")
+
+                    # Normalize sources array: ensure unique, non-empty, and not the Reddit URL
+                    normalized_sources: list[dict[str, str]] = []
+                    seen_urls: set[str] = set()
+                    reddit_domain = (
+                        urlparse(url).netloc.replace("www.", "").lower() if url else ""
+                    )
+
+                    for source in parsed_result.get("sources") or []:
+                        source_url = (source or {}).get("source_url", "").strip()
+                        if not source_url:
+                            continue
+
+                        source_domain = (
+                            urlparse(source_url).netloc.replace("www.", "").lower()
+                        )
+                        if source_domain == reddit_domain:
+                            continue
+                        if source_url in seen_urls:
+                            continue
+
+                        normalized_sources.append(
+                            {
+                                "source_url": source_url,
+                                "source_description": (source or {}).get(
+                                    "source_description", ""
+                                ).strip(),
+                            }
+                        )
+                        seen_urls.add(source_url)
+
+                    if (
+                        not normalized_sources
+                        and parsed_result.get("source_url")
+                        and parsed_result.get("source_url") not in seen_urls
+                    ):
+                        fallback_url = parsed_result.get("source_url", "")
+                        fallback_domain = (
+                            urlparse(fallback_url)
+                            .netloc.replace("www.", "")
+                            .lower()
+                        )
+                        if fallback_domain and fallback_domain != reddit_domain:
+                            normalized_sources.append(
+                                {
+                                    "source_url": fallback_url,
+                                    "source_description": parsed_result.get(
+                                        "source_description", ""
+                                    ).strip(),
+                                }
+                            )
+                            seen_urls.add(fallback_url)
+
+                    # Keep at most 3 sources for readability
+                    parsed_result["sources"] = normalized_sources[:3]
+
                     return parsed_result
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON Decode Error: {e}. Content: {json_str}")
                     # Fallback if JSON parsing fails
                     return {
                         "is_correct": None,
-                        "explanation": result[:200],  # First 200 chars as fallback
-                        "source_url": url,
-                        "source_description": "Unable to parse structured response",
+                        "explanation": result[:200],
+                        "sources": [],
                     }
             else:
+                logger.error("No JSON found in response")
                 # Fallback if no JSON found
                 return {
                     "is_correct": None,
                     "explanation": result[:200],
-                    "source_url": url,
-                    "source_description": "No structured response received",
+                    "sources": [],
                 }
         except Exception as e:
             logger.error(f"Error during verification: {e}")

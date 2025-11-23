@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Reddit Community Notes",
-  "version": "1.0",
+  "version": "1.2",
   "description": "Adds a community note-like box under Reddit posts with extracted title, URL, and subtext.",
   "permissions": ["activeTab"],
   "host_permissions": ["http://localhost:8000/*"],
