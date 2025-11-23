@@ -21,6 +21,18 @@ It consists of three main pieces:
 
 
 ---
+#
+## Tech stack
+- Tavily MCP search/extract/crawl
+- LastMile's MCP-Agent
+- MongoDB (`pymongo`) driver
+- OpenAI/Gemini LLMs
+- Chrome Extension `ManifestV3` (JavaScript)
+- FastAPI (Python 3)
+- Fetch/Web tooling for REST calls and packaging
+- `uv` for dependency/env management
+
+---
 
 ## Frontend (Chrome Extension)
 
@@ -36,7 +48,12 @@ It consists of three main pieces:
 3. Select the `reddit-extension/` folder.
 4. Visit Reddit and verify posts to see the injected panel.
 
-Try this Reddit post as an example: https://www.reddit.com/r/news/comments/1p33pck/france_will_investigate_musks_grok_chatbot_after/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
+##### Example URLs to try:
+1. Reddit [r/news](https://www.reddit.com/r/news/comments/1p33pck/france_will_investigate_musks_grok_chatbot_after/)
+
+2. Reddit [r/TheOnion](https://www.reddit.com/r/TheOnion/comments/1ok7fzi/china_agrees_to_purchase_11_us_soybeans/)
+
+3. Reddit [r/news](https://www.reddit.com/r/news/comments/1olrogq/80_of_nycarea_air_traffic_controllers_absent_amid/)
 
 ---
 
