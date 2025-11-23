@@ -19,7 +19,7 @@ execution_engine: asyncio
 
 logger:
   transports: [console, file]
-  level: info
+  level: debug
   path: logs/mcp-agent.log
 
 # Configure MCP Servers connections (supports stdio, sse, streamable_http, and websockets)
@@ -38,8 +38,8 @@ mcp:
       #  ROOT_PATH: "/workspace"
 
     tavily:
-      command: uvx
-      args: ["mcp-server-tavily"]
+      command: python
+      args: ["-m", "mcp_server_tavily"]
       env:
         TAVILY_API_KEY: "${TAVILY_API_KEY}"
     # sse_server:
@@ -69,8 +69,8 @@ agents:
       server_names: [fetch]
 
 # Model provider defaults (API keys go in mcp_agent.secrets.yaml)
-# openai:
-#   default_model: gpt-4o-mini
+openai:
+  default_model: gpt-5-mini-2025-08-07
 
 # anthropic:
 #   default_model: claude-sonnet-4-0

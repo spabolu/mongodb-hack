@@ -24,7 +24,7 @@ from mcp_agent.core.context import Context as AppContext
 from mcp_agent.workflows.factory import create_agent
 
 # We are using the OpenAI augmented LLM for this example but you can swap with others (e.g. AnthropicAugmentedLLM)
-from mcp_agent.workflows.llm.augmented_llm_google import GoogleAugmentedLLM
+from mcp_agent.workflows.llm.augmented_llm_openai import OpenAIAugmentedLLM
 import re
 import json
 from datetime import datetime
@@ -156,99 +156,110 @@ async def verify_content_agent(
     )
 
     async with agent:
-        llm = await agent.attach_llm(GoogleAugmentedLLM)
+        try:
+            # Since we configured the default model for OpenAI in config.yaml, we don't need to pass it here
+            # But if we wanted to override it, we would need to check how OpenAIAugmentedLLM accepts arguments
+            # The error suggests attach_llm doesn't accept kwargs for the LLM constructor directly in this version
+            # or it expects them differently.
+            # However, since we set it in config, let's try without the argument first,
+            # or instantiate the LLM class directly if needed.
+            # For now, let's rely on the config.
+            llm = await agent.attach_llm(OpenAIAugmentedLLM)
 
-        prompt = f"""
-        Verify this Reddit post content and return a JSON response with this exact structure:
+            prompt = f"""
+            Verify this Reddit post content and return a JSON response with this exact structure:
 
-        Title: {title}
-        URL: {url}
-        Subtext: {subtext}
-        {"Post Date: " + post_date_str + f" (search for sources between {start_date} and {end_date})" if post_date_str and start_date and end_date else ""}
+            Title: {title}
+            URL: {url}
+            Subtext: {subtext}
+            {"Post Date: " + post_date_str + f" (search for sources between {start_date} and {end_date})" if post_date_str and start_date and end_date else ""}
 
-        CRITICAL INSTRUCTIONS - Search Strategy:
+            CRITICAL INSTRUCTIONS - Search Strategy:
 
-        Today's date: {current_date}
-        {"The post was made on " + post_date_str + ". Look for sources published between " + start_date + " and " + end_date + " to verify claims made around that time." if post_date_str and start_date and end_date else "Search for recent sources to verify this post."}
+            Today's date: {current_date}
+            {"The post was made on " + post_date_str + ". Look for sources published between " + start_date + " and " + end_date + " to verify claims made around that time." if post_date_str and start_date and end_date else "Search for recent sources to verify this post."}
 
-        You MUST perform searches with date filters to find sources from around the post date:
-        
-        1. PRIMARY SEARCH - Sources Around Post Date:
-           Call tavily_search with:
-           - query: "{title}" or relevant keywords from the title
-           {'- start_date: "' + start_date + '" (sources published after this date)' if start_date else ""}
-           {'- end_date: "' + end_date + '" (sources published before this date)' if end_date else ""}
-           - max_results: 10
-           - Analyze: Are there sources from around the post date? What do they say?
-        
-        2. FALLBACK SEARCH - Recent Sources (if primary search yields few results):
-           Call tavily_search with:
-           - query: Same as above
-           - time_range: "week"
-           - max_results: 10
-           - DO NOT use include_domains - search across all domains
-           - Analyze: Compare with date-filtered results. Are they consistent?
-        
-        3. EXTRACT FROM URL:
-           Call tavily_extract with the provided URL to see what it actually says
-           - CRITICAL: When checking publication date, look for:
-             * Metadata fields like "publishedDate", "datePublished", "publishDate"
-             * URL structure that might indicate date (e.g., /2025/11/22/)
-             * Article metadata, not dates mentioned in the article content
-           - DO NOT confuse dates mentioned IN the article content (like "July 7, 2021") with the publication date
-           - If the article mentions historical dates, those are NOT the publication date
-           - The publication date is when the article was published, not when events in the article occurred
-           - Compare the ACTUAL publication date with the post date ({post_date_str if post_date_str else "N/A"})
-           - If the URL appears to be from around the post date ({start_date} to {end_date}), verify carefully
-           - Compare with search results
-        
-        4. COMPARISON & ANALYSIS:
-           - Compare information from date-filtered sources vs recent sources
-           - If sources from around the post date say something different than recent sources, note this
-           - Look for evidence that supports or contradicts the post based on sources from that time period
-           - Example: If a post claims "Zohran Mamdani made a 1am stop at a bar ahead of the mayoral election on November 3rd", look for sources from November 2-5 that mention this event
-        
-        5. SOURCE SELECTION:
-           - ALWAYS prefer sources from the date range around the post date ({start_date} to {end_date}) if available
-           - If no sources in that range, use recent sources but note the time gap
-           - When selecting source_url, choose sources closest to the post date
-           - Verify that the source publication date makes sense for the claim being made
-        
-        Return ONLY a valid JSON object with this exact structure:
-        {{
-        "is_correct": true/false,
-        "explanation": "2-line explanation. MUST include: (1) What sources from around the post date ({post_date_str if post_date_str else "the relevant time period"}) say (mention dates), (2) Whether the post's claims are supported by sources from that time, (3) Why the post is correct/incorrect based on sources from around the post date. Example format: 'Sources from [date range] indicate that [fact]. This [supports/contradicts] the post's claim that [claim].'",
-        "source_url": "MUST be a real URL from your Tavily search results. Prefer well-known, reputable news sources, but use any relevant source that provides accurate information. If no valid sources were found from your searches, use an empty string \"\" or the original post URL. NEVER use placeholder URLs like 'example.com', 'test.com', or any fake URLs.",
-        "source_description": "1 sentence. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post and the post date. If no valid source was found, state 'No reputable sources found from the specified date range.' Format: 'This [source name] article published on [date] discusses [topic] and [how it relates to post]. The publication date is [before/on/after] the post date of {post_date_str if post_date_str else "N/A"}, which [supports/contradicts] the post's timeline.'"
-        }}
+            You MUST perform searches with date filters to find sources from around the post date:
+            
+            1. PRIMARY SEARCH - Sources Around Post Date:
+               Call tavily_search with:
+               - query: "{title}" or relevant keywords from the title
+               {'- start_date: "' + start_date + '" (sources published after this date)' if start_date else ""}
+               {'- end_date: "' + end_date + '" (sources published before this date)' if end_date else ""}
+               - max_results: 10
+               - Analyze: Are there sources from around the post date? What do they say?
+            
+            2. FALLBACK SEARCH - Recent Sources (if primary search yields few results):
+               Call tavily_search with:
+               - query: Same as above
+               - time_range: "week"
+               - max_results: 10
+               - DO NOT use include_domains - search across all domains
+               - Analyze: Compare with date-filtered results. Are they consistent?
+            
+            3. EXTRACT FROM URL:
+               Call tavily_extract with the provided URL to see what it actually says
+               - CRITICAL: When checking publication date, look for:
+                 * Metadata fields like "publishedDate", "datePublished", "publishDate"
+                 * URL structure that might indicate date (e.g., /2025/11/22/)
+                 * Article metadata, not dates mentioned in the article content
+               - DO NOT confuse dates mentioned IN the article content (like "July 7, 2021") with the publication date
+               - If the article mentions historical dates, those are NOT the publication date
+               - The publication date is when the article was published, not when events in the article occurred
+               - Compare the ACTUAL publication date with the post date ({post_date_str if post_date_str else "N/A"})
+               - If the URL appears to be from around the post date ({start_date} to {end_date}), verify carefully
+               - Compare with search results
+            
+            4. COMPARISON & ANALYSIS:
+               - Compare information from date-filtered sources vs recent sources
+               - If sources from around the post date say something different than recent sources, note this
+               - Look for evidence that supports or contradicts the post based on sources from that time period
+               - Example: If a post claims "Zohran Mamdani made a 1am stop at a bar ahead of the mayoral election on November 3rd", look for sources from November 2-5 that mention this event
+            
+            5. SOURCE SELECTION:
+               - ALWAYS prefer sources from the date range around the post date ({start_date} to {end_date}) if available
+               - If no sources in that range, use recent sources but note the time gap
+               - When selecting source_url, choose sources closest to the post date
+               - Verify that the source publication date makes sense for the claim being made
+            
+            Return ONLY a valid JSON object with this exact structure:
+            {{
+            "is_correct": true/false,
+            "explanation": "2-line explanation. MUST include: (1) What sources from around the post date ({post_date_str if post_date_str else "the relevant time period"}) say (mention dates), (2) Whether the post's claims are supported by sources from that time, (3) Why the post is correct/incorrect based on sources from around the post date. Example format: 'Sources from [date range] indicate that [fact]. This [supports/contradicts] the post's claim that [claim].'",
+            "source_url": "MUST be a real URL from your Tavily search results. Prefer well-known, reputable news sources, but use any relevant source that provides accurate information. If no valid sources were found from your searches, use an empty string \"\" or the original post URL. NEVER use placeholder URLs like 'example.com', 'test.com', or any fake URLs.",
+            "source_description": "1 sentence. MUST include: (1) Exact publication date, (2) What the source discusses, (3) How it relates to the post and the post date. If no valid source was found, state 'No reputable sources found from the specified date range.' Format: 'This [source name] article published on [date] discusses [topic] and [how it relates to post]. The publication date is [before/on/after] the post date of {post_date_str if post_date_str else "N/A"}, which [supports/contradicts] the post's timeline.'"
+            }}
 
-        Do not include any text before or after the JSON.
-        """
+            Do not include any text before or after the JSON.
+            """
 
-        result = await llm.generate_str(message=prompt)
+            result = await llm.generate_str(message=prompt)
 
-        # Extract JSON from response (LLM might add extra text)
-        json_match = re.search(r"\{.*\}", result, re.DOTALL)
-        if json_match:
-            try:
-                parsed_result = json.loads(json_match.group())
-                return parsed_result
-            except json.JSONDecodeError:
-                # Fallback if JSON parsing fails
+            # Extract JSON from response (LLM might add extra text)
+            json_match = re.search(r"\{.*\}", result, re.DOTALL)
+            if json_match:
+                try:
+                    parsed_result = json.loads(json_match.group())
+                    return parsed_result
+                except json.JSONDecodeError:
+                    # Fallback if JSON parsing fails
+                    return {
+                        "is_correct": None,
+                        "explanation": result[:200],  # First 200 chars as fallback
+                        "source_url": url,
+                        "source_description": "Unable to parse structured response",
+                    }
+            else:
+                # Fallback if no JSON found
                 return {
                     "is_correct": None,
-                    "explanation": result[:200],  # First 200 chars as fallback
+                    "explanation": result[:200],
                     "source_url": url,
-                    "source_description": "Unable to parse structured response",
+                    "source_description": "No structured response received",
                 }
-        else:
-            # Fallback if no JSON found
-            return {
-                "is_correct": None,
-                "explanation": result[:200],
-                "source_url": url,
-                "source_description": "No structured response received",
-            }
+        except Exception as e:
+            logger.error(f"Error during verification: {e}")
+            raise e
 
 # Hello world agent: an Agent using MCP servers + LLM
 @app.tool()
@@ -279,7 +290,7 @@ async def finder_agent(request: str, app_ctx: Optional[AppContext] = None) -> st
     )
 
     async with agent:
-        llm = await agent.attach_llm(GoogleAugmentedLLM)
+        llm = await agent.attach_llm(OpenAIAugmentedLLM)
         result = await llm.generate_str(message=request)
         return result
 
@@ -330,7 +341,7 @@ async def run_agent(
     agent = create_agent(agent_spec, context=app_ctx)
 
     async with agent:
-        llm = await agent.attach_llm(GoogleAugmentedLLM)
+        llm = await agent.attach_llm(OpenAIAugmentedLLM)
         return await llm.generate_str(message=prompt)
 
 
