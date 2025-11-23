@@ -91,14 +91,15 @@ The server listens on `http://0.0.0.0:8000`. The browser extension should point 
 
 | Component | Purpose |
 |-----------|---------|
-| **Tavily MCP server** | Performs date-bounded searches on reputable domains, returning structured search results. |
+| **Tavily MCP server** | Performs date-bounded searches on reputable domains using `topic="news"` to filter for news sources, returning structured search results with publication dates. |
 | **mcp-agent** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
 | **OpenAI / Gemini LLMs** | Reason over Tavily results, enforce JSON schema, and summarize verification. `OpenAIAugmentedLLM` is currently configured with the `gpt-5-mini-2025-08-07` model. |
 
 The workflow enforces:
 * Date filters aligned with the Reddit post timestamp.
+* `topic="news"` parameter in Tavily searches to prioritize news sources with publication dates.
 * Reputable domain whitelists.
-* Satire/fake-source detection (don’t treat original satire articles as “proof”).
+* Satire/fake-source detection (don't treat original satire articles as "proof").
 * Returning multiple independent sources with descriptions.
 
 ---
