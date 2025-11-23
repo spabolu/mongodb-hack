@@ -7,7 +7,11 @@
   "host_permissions": ["http://localhost:8000/*"],
   "content_scripts": [
     {
-      "matches": ["*://*.reddit.com/r/news/*", "*://*.reddit.com/r/politics/*"],
+      "matches": [
+        "*://*.reddit.com/r/news/*",
+        "*://*.reddit.com/r/politics/*",
+        "*://*.reddit.com/r/TheOnion/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_end"
     }

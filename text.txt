@@ -16,6 +16,14 @@ curl -X POST "http://localhost:8000/verify" \
     "postDate": "2025-11-22T19:36:04.053Z"
   }'
 
+curl -X POST "http://localhost:8000/verify" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://thehill.com/homenews/house/5618228-democrats-doj-epstein-files/",
+    "title": "Democrats plan full-court press on DOJ to release Epstein files",
+    "subtext": "",
+    "postDate": "2025-11-22T22:36:31.642Z"
+  }'
 
 {
     "is_correct":

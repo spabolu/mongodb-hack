@@ -116,7 +116,7 @@ async def verify_content_agent(
     agent = Agent(
         name="content_verifier",
         instruction=(
-            "You are a fact-checking assistant for r/news and r/politics subreddits. "
+            "You are a fact-checking assistant for r/news, r/politics, and r/TheOnion subreddits. "
             "CRITICAL: Information changes rapidly - you MUST search for sources around the time the post was made.\n"
             f"{f'This post was made on {post_date_str}. Search for sources published between {start_date} and {end_date} to verify claims made around that time.' if post_date_str and start_date and end_date else 'Search for recent sources to verify this post.'}\n"
             "Use Tavily MCP tools with domain filters to:\n"
@@ -137,6 +137,8 @@ async def verify_content_agent(
             else ""
             "   - max_results: 10 to get comprehensive results\n"
             "4. Extract detailed content from the provided URL if it's from a reputable source\n"
+            "   - CRITICAL: When extracting publication dates, use metadata/structured data, NOT dates mentioned in article content\n"
+            "   - The publication date is when the article was published, which may be different from dates mentioned in the content\n"
             "5. Check publication dates - prioritize sources from the date range around the post date\n"
             "6. Compare the claims with reputable sources, paying attention to WHEN sources were published relative to the post date\n"
             "7. If information appears to have changed recently, note this explicitly\n"
@@ -189,9 +191,16 @@ async def verify_content_agent(
         
         3. EXTRACT FROM URL:
            Call tavily_extract with the provided URL to see what it actually says
-           - Check the publication date
+           - CRITICAL: When checking publication date, look for:
+             * Metadata fields like "publishedDate", "datePublished", "publishDate"
+             * URL structure that might indicate date (e.g., /2025/11/22/)
+             * Article metadata, not dates mentioned in the article content
+           - DO NOT confuse dates mentioned IN the article content (like "July 7, 2021") with the publication date
+           - If the article mentions historical dates, those are NOT the publication date
+           - The publication date is when the article was published, not when events in the article occurred
+           - Compare the ACTUAL publication date with the post date ({post_date_str if post_date_str else "N/A"})
+           - If the URL appears to be from around the post date ({start_date} to {end_date}), verify carefully
            - Compare with search results
-           - Verify if the URL's publication date aligns with the post date
         
         4. COMPARISON & ANALYSIS:
            - Compare information from date-filtered sources vs recent sources

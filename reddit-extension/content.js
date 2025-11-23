@@ -17,7 +17,12 @@ async function addNoteToPost(post) {
   const finalSubreddit = postSubreddit || subreddit;
 
   // Only process r/news and r/politics
-  if (finalSubreddit !== 'news' && finalSubreddit !== 'politics') {
+  // Only process r/news, r/politics, and r/TheOnion
+  if (
+    finalSubreddit !== 'news' &&
+    finalSubreddit !== 'politics' &&
+    finalSubreddit !== 'TheOnion'
+  ) {
     return;
   }
 
