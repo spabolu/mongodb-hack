@@ -108,7 +108,7 @@ Want to see it in action? Try these posts:
 ---
 #
 ## Tech stack
-- Tavily MCP (search/extract/crawl tools)
+- Tavily MCP (search/extract tools)
 - LastMile's MCP-Agent
 - MongoDB (`pymongo`) driver
 - OpenAI LLMs
