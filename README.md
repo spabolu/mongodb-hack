@@ -1,6 +1,6 @@
 # Reddit Community Notes – AI-powered Truth Checker
 
-This project improves Reddit with an AI-powered "Truth Checker" that runs directly in the browser. It is inspired by X/Twitter's Community Notes feature and the rise of misinformation on forums like Reddit.
+This project improves Reddit with an AI-powered "Truth Checker" that runs directly in the browser. It is inspired by X/Twitter's "Community Notes" feature and serves as a solution to the rise of misinformation on public forums like Reddit.
 
 It consists of three main pieces:
 
