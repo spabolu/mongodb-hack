@@ -24,18 +24,21 @@ from mcp_agent.agents.agent_spec import AgentSpec
 from mcp_agent.core.context import Context as AppContext
 from mcp_agent.workflows.factory import create_agent
 
-# We are using the OpenAI augmented LLM for this example but you can swap with others (e.g. AnthropicAugmentedLLM)
+# Using OpenAI LLM - can swap with others like AnthropicAugmentedLLM if needed
 from mcp_agent.workflows.llm.augmented_llm_openai import OpenAIAugmentedLLM
 import json
 from datetime import datetime
 
-# Create the MCPApp, the root of mcp-agent.
+# Create the main MCP app instance
+# Config is read from mcp_agent.config.yaml and mcp_agent.secrets.yaml by default
 app = MCPApp(
     name="Reddit Community Notes",
     description="Reddit Community Notes is a tool that verifies the content of a Reddit post using Tavily.",
     # settings= <specify programmatically if needed; by default, configuration is read from mcp_agent.config.yaml/mcp_agent.secrets.yaml>
 )
 
+# Main verification function - exposed as an MCP tool
+# Called by the FastAPI endpoint in app.py
 @app.tool()
 async def verify_content_agent(
     url: str,
@@ -47,23 +50,28 @@ async def verify_content_agent(
     """
     Verify content from Reddit posts using Tavily to find reputable sources
     and extract additional context.
+    
+    Returns a dict with is_correct, explanation, and sources.
     """
     logger = app_ctx.app.logger
     logger.info(f"Verifying content for URL: {url}")
     current_date = datetime.now().strftime("%Y-%m-%d")
 
-    # Parse post date and calculate date range for source search
+    # Parse the post date to create a search window
+    # We want sources from around when the post was made, not just recent sources
     post_date_str = None
     start_date = None
     end_date = None
 
     if postDate and postDate != "No date found":
         try:
-            # Parse ISO format: "2025-11-03T12:24:47.083Z"
+            # Parse ISO format like "2025-11-03T12:24:47.083Z"
+            # Replace Z with +00:00 for Python's datetime parser
             post_datetime = datetime.fromisoformat(postDate.replace("Z", "+00:00"))
             post_date_str = post_datetime.strftime("%Y-%m-%d")
 
-            # Calculate date range: a few days before and 1-2 days after
+            # Create a search window: 3 days before to 2 days after the post
+            # This helps find sources that were available when the post was made
             from datetime import timedelta
 
             start_date = (post_datetime - timedelta(days=3)).strftime(
@@ -78,16 +86,16 @@ async def verify_content_agent(
             )
         except Exception as e:
             logger.warning(f"Failed to parse post date '{postDate}': {e}")
-            # Fallback: use relative time if it's in format like "19d ago"
+            # Could parse relative time like "19d ago" here if needed
             if "ago" in postDate.lower():
-                # Could parse relative time here if needed
                 pass
 
-    # List of reputable news sources for r/news and r/politics
+    # Curated list of reputable news sources
+    # These are used to filter Tavily search results for high-quality sources
     reputable_domains = [
         # === Pure Center / Gold Standard (least bias, highest accuracy) ===
         "reuters.com",           # #1 most neutral wire service
-        "apnews.com",            # AP’s public site (prefer over ap.org)
+        "apnews.com",            # AP's public site (prefer over ap.org)
         "associatedpress.com",   # Alternative AP domain
         "bbc.com",               # BBC News (global edition)
         "bbc.co.uk",             # BBC UK (same content)
@@ -111,6 +119,7 @@ async def verify_content_agent(
         "economist.com",         # Slight center-left global tilt but excellent fact-checking
     ]
 
+    # Known satire sites - we need to detect these and flag them appropriately
     satire_domains = [
         "theonion.com",
         "babylonbee.com",
@@ -120,15 +129,19 @@ async def verify_content_agent(
         "newsbiscuit.com",
     ]
 
-    # Convert to string for prompt
-    ", ".join(reputable_domains)
+    # Prepare domain info for the prompt
+    # Note: reputable_domains is used in the agent instruction string
     satire_domains_str = ", ".join(satire_domains)
+    
+    # Extract domain from the post URL to check if it's satire
     post_domain = (
         urlparse(url).netloc.replace("www.", "").lower()
         if url not in (None, "")
         else "unknown"
     )
     is_known_satire = post_domain in satire_domains
+    # Create the agent that will do the fact-checking
+    # It uses Tavily MCP server to search for sources
     agent = Agent(
         name="content_verifier",
         instruction=(
@@ -168,21 +181,19 @@ async def verify_content_agent(
             "   - Fact-check status (verified/needs review/disputed)\n"
             "   - Explicit mention of source dates and how they relate to the post date"
         ),
-        server_names=["tavily"],  # Use Tavily MCP server
+        server_names=["tavily"],  # Agent can use Tavily MCP server tools
         context=app_ctx,
     )
 
+    # Run the agent - it will use Tavily to search for sources and verify the post
     async with agent:
         try:
-            # Since we configured the default model for OpenAI in config.yaml, we don't need to pass it here
-            # But if we wanted to override it, we would need to check how OpenAIAugmentedLLM accepts arguments
-            # The error suggests attach_llm doesn't accept kwargs for the LLM constructor directly in this version
-            # or it expects them differently.
-            # However, since we set it in config, let's try without the argument first,
-            # or instantiate the LLM class directly if needed.
-            # For now, let's rely on the config.
+            # Attach the LLM to the agent
+            # Model config comes from mcp_agent.config.yaml
             llm = await agent.attach_llm(OpenAIAugmentedLLM)
 
+            # Build the prompt with all the context and instructions
+            # This is a long prompt that tells the LLM exactly how to verify the post
             prompt = f"""
             Verify this Reddit post content and return a JSON response with this exact structure:
 
@@ -274,45 +285,48 @@ async def verify_content_agent(
             If you cannot find 2 independent sources, provide 1, but do NOT hallucinate or use the Reddit link as a source.
             """
 
+            # Get the LLM's response - it should return JSON
             result = await llm.generate_str(message=prompt)
             logger.info(f"LLM Raw Response: {result}")
 
-            # Extract JSON from response (LLM might add extra text or markdown code blocks)
-            # First, try to strip markdown code blocks
+            # LLM might wrap JSON in markdown code blocks or add extra text
+            # Clean it up before parsing
             cleaned_result = result.strip()
             if cleaned_result.startswith('```'):
-                # Remove markdown code fences
+                # Remove markdown code fences (```json or ```)
                 lines = cleaned_result.split('\n')
-                # Remove first line if it's a code fence
                 if lines[0].startswith('```'):
                     lines = lines[1:]
-                # Remove last line if it's a code fence
                 if lines and lines[-1].startswith('```'):
                     lines = lines[:-1]
                 cleaned_result = '\n'.join(lines).strip()
             
-            # Find the first '{' and the last '}'
+            # Find the JSON object boundaries
             start_idx = cleaned_result.find('{')
             end_idx = cleaned_result.rfind('}')
             
             if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                # Extract just the JSON part
                 json_str = cleaned_result[start_idx : end_idx + 1]
                 try:
                     parsed_result = json.loads(json_str)
                     logger.info(f"Parsed JSON: {json.dumps(parsed_result, indent=2)}")
 
-                    # Normalize sources array: ensure unique, non-empty, and not the Reddit URL
+                    # Clean up and normalize the sources array
+                    # Remove duplicates, empty URLs, and Reddit URLs (can't use Reddit as a source)
                     normalized_sources: list[dict[str, str]] = []
                     seen_urls: set[str] = set()
                     reddit_domain = (
                         urlparse(url).netloc.replace("www.", "").lower() if url else ""
                     )
 
+                    # Process sources from the LLM response
                     for source in parsed_result.get("sources") or []:
                         source_url = (source or {}).get("source_url", "").strip()
                         if not source_url:
                             continue
 
+                        # Skip if it's a Reddit URL or duplicate
                         source_domain = (
                             urlparse(source_url).netloc.replace("www.", "").lower()
                         )
@@ -331,6 +345,7 @@ async def verify_content_agent(
                         )
                         seen_urls.add(source_url)
 
+                    # Fallback: if no sources in array, check for legacy source_url field
                     if (
                         not normalized_sources
                         and parsed_result.get("source_url")
@@ -353,55 +368,52 @@ async def verify_content_agent(
                             )
                             seen_urls.add(fallback_url)
 
-                    # Keep at most 3 sources for readability
+                    # Limit to 3 sources max for readability
                     parsed_result["sources"] = normalized_sources[:3]
 
                     return parsed_result
                 except json.JSONDecodeError as e:
+                    # LLM didn't return valid JSON - return a safe fallback
                     logger.error(f"JSON Decode Error: {e}. Content: {json_str}")
-                    # Fallback if JSON parsing fails
                     return {
                         "is_correct": None,
-                        "explanation": result[:200],
+                        "explanation": result[:200],  # First 200 chars as explanation
                         "sources": [],
                     }
             else:
+                # No JSON object found in response
                 logger.error("No JSON found in response")
-                # Fallback if no JSON found
                 return {
                     "is_correct": None,
                     "explanation": result[:200],
                     "sources": [],
                 }
         except Exception as e:
+            # Re-raise errors so they're handled by the FastAPI endpoint
             logger.error(f"Error during verification: {e}")
             raise e
 
-# Hello world agent: an Agent using MCP servers + LLM
+# Example agent: uses fetch and filesystem MCP servers
+# This is a demo agent, not used by the main verification flow
 @app.tool()
 async def finder_agent(request: str, app_ctx: Optional[AppContext] = None) -> str:
     """
-    Run an Agent with access to MCP servers (fetch + filesystem) to handle the input request.
-
-    Notes:
-    - @app.tool:
-      - runs the function as a long-running workflow tool when deployed as an MCP server
-      - no-op when running this locally as a script
-    - app_ctx:
-      - MCPApp Context (configuration, logger, upstream session, etc.)
+    Example agent that can fetch URLs and read files.
+    
+    @app.tool decorator makes this available as an MCP tool when deployed.
+    When running locally, it's just a regular function.
     """
-
     logger = app_ctx.app.logger
-    # Logger requests are forwarded as notifications/message to the client over MCP.
     logger.info(f"finder_tool called with request: {request}")
 
+    # Create an agent with access to fetch and filesystem MCP servers
     agent = Agent(
         name="finder",
         instruction=(
             "You are a helpful assistant. Use MCP servers to fetch and read files,"
             " then answer the request concisely."
         ),
-        server_names=["fetch", "filesystem"],
+        server_names=["fetch", "filesystem"],  # Can use these MCP servers
         context=app_ctx,
     )
 
@@ -411,7 +423,8 @@ async def finder_agent(request: str, app_ctx: Optional[AppContext] = None) -> st
         return result
 
 
-# Run a configured agent by name (defined in mcp_agent.config.yaml)
+# Example: Run an agent defined in config.yaml by name
+# This shows how to load and run agents from configuration
 @app.async_tool(name="run_agent_async")
 async def run_agent(
     agent_name: str = "web_helper",
@@ -419,17 +432,14 @@ async def run_agent(
     app_ctx: Optional[AppContext] = None,
 ) -> str:
     """
-    Load an agent defined in mcp_agent.config.yaml by name and run it.
-
-    Notes:
-    - @app.async_tool:
-      - async version of @app.tool -- returns a workflow ID back (can be used with workflows-get_status tool)
-      - runs the function as a long-running workflow tool when deployed as an MCP server
-      - no-op when running this locally as a script
+    Load an agent from mcp_agent.config.yaml by name and run it.
+    
+    @app.async_tool is the async version of @app.tool - returns a workflow ID
+    when deployed as an MCP server.
     """
-
     logger = app_ctx.app.logger
 
+    # Get agent definitions from config
     agent_definitions = (
         app.config.agents.definitions
         if app is not None
@@ -439,6 +449,7 @@ async def run_agent(
         else []
     )
 
+    # Find the agent by name
     agent_spec: AgentSpec | None = None
     for agent_def in agent_definitions:
         if agent_def.name == agent_name:
@@ -454,6 +465,7 @@ async def run_agent(
         data={"name": agent_name, "instruction": agent_spec.instruction},
     )
 
+    # Create and run the agent
     agent = create_agent(agent_spec, context=app_ctx)
 
     async with agent:
@@ -461,9 +473,11 @@ async def run_agent(
         return await llm.generate_str(message=prompt)
 
 
+# Main function for running examples locally
+# Not used when deployed as an MCP server or when called via FastAPI
 async def main():
     async with app.run() as agent_app:
-        # Run the agent
+        # Example: Run the finder agent
         readme_summary = await finder_agent(
             request="Please summarize the README.md file in this directory.",
             app_ctx=agent_app.context,
@@ -471,6 +485,7 @@ async def main():
         print("README.md file summary:")
         print(readme_summary)
 
+        # Example: Run a configured agent
         webpage_summary = await run_agent(
             agent_name="web_helper",
             prompt="Please summarize the first few paragraphs of https://modelcontextprotocol.io/docs/getting-started/intro.",
