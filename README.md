@@ -205,7 +205,7 @@ The server listens on `http://0.0.0.0:8000`. The browser extension should point 
 
 The workflow enforces:
 * Date filters aligned with the Reddit post timestamp.
-* Use the `topic="news"` parameter in Tavily searches to prioritize recent news sources with publication dates (thanks to Yash for suggesting this feature).
+* Use the `topic="news"` parameter in Tavily searches to prioritize recent news sources with publication dates.
 * Reputable domain whitelists.
 * Satire/fake-source detection (don't treat original satire articles as "proof").
 * Returning multiple independent sources with descriptions.
