@@ -1,5 +1,5 @@
 import asyncio
-from main import app, verify_content_agent
+from mongodb_hack.main import app, verify_content_agent
 
 async def main():
     async with app.run() as agent_app:

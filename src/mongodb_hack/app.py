@@ -14,13 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Import your mcp-agent app and tools
-from main import app as mcp_app, verify_content_agent
+from .main import app as mcp_app, verify_content_agent
 from mcp_agent.core.context import Context as AppContext
 
 # Import MongoDB cache functions
-from db.cache import get_cached_verification, store_verification
-from db.init_indexes import ensure_indexes
-from db.mongodb import close_mongodb_connection
+from .db.cache import get_cached_verification, store_verification
+from .db.init_indexes import ensure_indexes
+from .db.mongodb import close_mongodb_connection
 
 # Global variable to hold the app context
 app_context: Optional[AppContext] = None

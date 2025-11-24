@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-app = "app:main"
+app = "mongodb_hack.app:main"
 
 [tool.uv]
 package = true

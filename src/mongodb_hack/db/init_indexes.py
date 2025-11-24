@@ -5,9 +5,7 @@ Initialize MongoDB indexes for verification cache.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
-
-from db.mongodb import get_database
+from .mongodb import get_database
 
 logger = logging.getLogger(__name__)
 

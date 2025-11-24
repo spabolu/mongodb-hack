@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
-from db.mongodb import get_database
+from .mongodb import get_database
 
 logger = logging.getLogger(__name__)
 
