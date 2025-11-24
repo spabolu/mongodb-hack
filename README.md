@@ -6,7 +6,7 @@ It consists of three main pieces:
 
 1. **Frontend Chrome Extension** (`reddit-extension/`): injects a panel into eligible Reddit posts (r/news, r/politics, r/TheOnion) and calls the backend to display the verification results.
 2. **Backend FastAPI Server** (`src/app.py`, `src/main.py`): wraps LastMile's `mcp-agent` app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
-3. **AI + MCP Tooling**: Tavily MCP server for search, LastMile's `mcp-agent` for workflow management, and OpenAI/Gemini LLM backends via augmented LLMs.
+3. **AI + MCP Tooling**: Tavily MCP server for search, LastMile's `mcp-agent` for workflow management, and OpenAI LLM backends via augmented LLMs.
 
 ## 🌐 Live Services
 
@@ -111,7 +111,7 @@ Want to see it in action? Try these posts:
 - Tavily MCP (search/extract/crawl tools)
 - LastMile's MCP-Agent
 - MongoDB (`pymongo`) driver
-- OpenAI/Gemini LLMs
+- OpenAI LLMs
 - Chrome Extension `ManifestV3` (JavaScript)
 - FastAPI (Python 3)
 - Fetch/Web tooling for REST calls and packaging
@@ -146,7 +146,7 @@ Want to see it in action? Try these posts:
 
 * The core MCP agent logic lives in `src/main.py` (adapted LastMile's `mcp-agent` example).
 * `src/app.py` wraps the MCP app with FastAPI and exposes `/verify` endpoint.
-* Uses Tavily MCP server to fetch reputable sources and OpenAI/Gemini LLMs (via `OpenAIAugmentedLLM`).
+* Uses Tavily MCP server to fetch reputable sources and OpenAI LLM (via `OpenAIAugmentedLLM`).
 * MongoDB caching layer (`src/db/`) for storing verification results to reduce API costs. Uses hashing to store unique id of the Reddit post URL.
 
 ### Project Structure
@@ -172,7 +172,7 @@ Want to see it in action? Try these posts:
 
 * Python 3.11+
 * [uv](https://github.com/astral-sh/uv) for managing the virtual environment.
-* Tavily API key and LLM provider API keys (OpenAI/Gemini) — stored in secrets files / `.env`.
+* Tavily API key and LLM provider API keys (OpenAI) — stored in secrets files / `.env`.
 * MongoDB (Atlas or local) — optional but recommended for caching verification results.
 * Highly recommend using OpenAI `gpt-5-mini-2025-08-07` model for efficiency and/or `gpt-5.1-2025-11-13` model for best accuracy.
 
@@ -201,7 +201,7 @@ The server listens on `http://0.0.0.0:8000`. The browser extension should point 
 |-----------|---------|
 | **Tavily MCP server** | Performs date-bounded searches on reputable domains using `topic="news"` to filter for news sources, returning structured search results with publication dates. |
 | **LastMile's `mcp-agent`** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
-| **OpenAI / Gemini LLMs** | Reason over Tavily results, enforce JSON schema, and summarize verification. `OpenAIAugmentedLLM` is currently configured with the `gpt-5-mini-2025-08-07` model. |
+| **OpenAI LLM** | Reason over Tavily results, enforce JSON schema, and summarize verification. `OpenAIAugmentedLLM` is currently configured with the `gpt-5-mini-2025-08-07` model. |
 
 The workflow enforces:
 * Date filters aligned with the Reddit post timestamp.
