@@ -8,7 +8,7 @@ It consists of three main pieces:
 2. **Backend FastAPI Server** (`src/app.py`, `src/main.py`): wraps LastMile's `mcp-agent` app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
 3. **AI + MCP Tooling**: Tavily MCP server for search, LastMile's `mcp-agent` for workflow management, and OpenAI LLM backends via augmented LLMs.
 
-## 🌐 Live Services
+## 🌐 Live Services (Deployed with `ngrok` and LastMile's `mcp-agent`)
 
 - **MCP Agent**: [https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/](https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/)
 - **FastAPI Backend**: [https://cef5c5f9c1f3.ngrok-free.app/](https://cef5c5f9c1f3.ngrok-free.app/)
