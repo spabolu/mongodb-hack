@@ -28,7 +28,7 @@ mcp:
     # Filesystem access server
     filesystem:
       command: npx
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      args: ["-y", "@modelcontextprotocol/server-filesystem"]
 
     # Web fetch server
     fetch:
@@ -38,8 +38,8 @@ mcp:
       #  ROOT_PATH: "/workspace"
 
     tavily:
-      command: python
-      args: ["-m", "mcp_server_tavily"]
+      command: uvx
+      args: ["mcp-tavily"]
       env:
         TAVILY_API_KEY: "${TAVILY_API_KEY}"
     # sse_server:
@@ -70,7 +70,7 @@ agents:
 
 # Model provider defaults (API keys go in mcp_agent.secrets.yaml)
 openai:
-  default_model: gpt-5.1-2025-11-13
+  default_model: gpt-5-mini-2025-08-07
 
 # anthropic:
 #   default_model: claude-sonnet-4-0
