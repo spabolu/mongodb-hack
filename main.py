@@ -26,7 +26,6 @@ from mcp_agent.workflows.factory import create_agent
 
 # We are using the OpenAI augmented LLM for this example but you can swap with others (e.g. AnthropicAugmentedLLM)
 from mcp_agent.workflows.llm.augmented_llm_openai import OpenAIAugmentedLLM
-import re
 import json
 from datetime import datetime
 
@@ -122,7 +121,7 @@ async def verify_content_agent(
     ]
 
     # Convert to string for prompt
-    domains_str = ", ".join(reputable_domains)
+    ", ".join(reputable_domains)
     satire_domains_str = ", ".join(satire_domains)
     post_domain = (
         urlparse(url).netloc.replace("www.", "").lower()

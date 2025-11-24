@@ -81,7 +81,7 @@ async function addNoteToPost(post) {
     post.querySelector('div.md');
   const subtext = subtextElement
     ? subtextElement.textContent.trim().substring(0, 300) +
-      (subtextElement.textContent.trim().length > 300 ? '…' : '')
+    (subtextElement.textContent.trim().length > 300 ? '…' : '')
     : 'No subtext found';
 
   // Skip if no URL found
@@ -153,14 +153,14 @@ async function addNoteToPost(post) {
       isCorrect === true
         ? '#28a745'
         : isCorrect === false
-        ? '#dc3545'
-        : '#6c757d';
+          ? '#dc3545'
+          : '#6c757d';
     const statusText =
       isCorrect === true
         ? 'Correct'
         : isCorrect === false
-        ? 'Not Correct'
-        : 'Unable to Verify';
+          ? 'Not Correct'
+          : 'Unable to Verify';
 
     noteDiv.innerHTML = `
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:600; color:#1a1a1b;">
@@ -177,16 +177,15 @@ async function addNoteToPost(post) {
         <div style="margin-top:8px; padding:8px; background:${statusColor}15; border-left:3px solid ${statusColor}; border-radius:4px;">
           <div style="font-weight:600; color:${statusColor}; margin-bottom:4px;">${statusText}</div>
           <div style="color:#1c1c1c; white-space:pre-line;">${escapeHtml(
-            data.explanation || 'No explanation available'
-          )}</div>
+      data.explanation || 'No explanation available'
+    )}</div>
         </div>
       </div>
 
       <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e1e4e8;">
         <strong style="color:#1a1a1b; display:block; margin-bottom:8px;">What sources were used to validate?</strong>
-        ${
-          data.sources && data.sources.length > 0
-            ? data.sources.map(source => `
+        ${data.sources && data.sources.length > 0
+        ? data.sources.map(source => `
               <div style="margin-bottom:16px;">
                 <div style="margin-bottom:4px;">
                   <a href="${escapeHtml(source.source_url)}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none; word-break:break-all;">
@@ -198,19 +197,19 @@ async function addNoteToPost(post) {
                 </div>
               </div>
             `).join('')
-            : `
+        : `
               <div style="margin-bottom:16px;">
-                 <div style="margin-bottom:4px;">
+        <div style="margin-bottom:4px;">
                   <a href="${escapeHtml(data.source_url || url)}" target="_blank" rel="noopener" style="color:#1a0dab; text-decoration:none; word-break:break-all;">
                     ${escapeHtml((data.source_url || url).replace(/^https?:\/\//, '').replace(/\/$/, '').substring(0, 60))}${(data.source_url || url).length > 60 ? '…' : ''}
-                  </a>
-                </div>
-                <div style="color:#57606a; font-size:13px; margin-top:4px;">
+          </a>
+        </div>
+        <div style="color:#57606a; font-size:13px; margin-top:4px;">
                   ${escapeHtml(data.source_description || 'No source description available')}
                 </div>
-              </div>
+        </div>
             `
-        }
+      }
       </div>
     `;
   } catch (error) {

@@ -5,7 +5,6 @@ This allows the browser extension to call the agent via REST API.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
