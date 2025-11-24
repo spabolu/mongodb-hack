@@ -5,8 +5,8 @@ This project improves Reddit with an AI-powered "Truth Checker" that runs direct
 It consists of three main pieces:
 
 1. **Frontend Chrome Extension** (`reddit-extension/`): injects a panel into eligible Reddit posts (r/news, r/politics, r/TheOnion) and calls the backend to display the verification results.
-2. **Backend FastAPI Server** (`src/app.py`, `src/main.py`): wraps the `mcp-agent` app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
-3. **AI + MCP Tooling**: Tavily MCP server for search, `mcp-agent` for workflow management, and OpenAI/Gemini LLM backends via augmented LLMs.
+2. **Backend FastAPI Server** (`src/app.py`, `src/main.py`): wraps LastMile's `mcp-agent` app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
+3. **AI + MCP Tooling**: Tavily MCP server for search, LastMile's `mcp-agent` for workflow management, and OpenAI/Gemini LLM backends via augmented LLMs.
 
 ## 🌐 Live Services
 
@@ -65,7 +65,7 @@ It consists of three main pieces:
 
 ## Backend (FastAPI + MCP Agent)
 
-* The core MCP agent logic lives in `src/main.py` (adapted `mcp-agent` example).
+* The core MCP agent logic lives in `src/main.py` (adapted LastMile's `mcp-agent` example).
 * `src/app.py` wraps the MCP app with FastAPI and exposes `/verify` endpoint.
 * Uses Tavily MCP server to fetch reputable sources and OpenAI/Gemini LLMs (via `OpenAIAugmentedLLM`).
 * MongoDB caching layer (`src/db/`) for storing verification results to reduce API costs. Uses hashing to store unique id of the Reddit post URL.
@@ -121,7 +121,7 @@ The server listens on `http://0.0.0.0:8000`. The browser extension should point 
 | Component | Purpose |
 |-----------|---------|
 | **Tavily MCP server** | Performs date-bounded searches on reputable domains using `topic="news"` to filter for news sources, returning structured search results with publication dates. |
-| **`mcp-agent`** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
+| **LastMile's `mcp-agent`** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
 | **OpenAI / Gemini LLMs** | Reason over Tavily results, enforce JSON schema, and summarize verification. `OpenAIAugmentedLLM` is currently configured with the `gpt-5-mini-2025-08-07` model. |
 
 The workflow enforces:
