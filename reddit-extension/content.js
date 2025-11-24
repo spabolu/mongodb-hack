@@ -155,7 +155,7 @@ async function addNoteToPost(post) {
         <path d="M12 8v4"></path>
         <circle cx="12" cy="16" r="1"></circle>
       </svg>
-      AI Truth Checker
+      AI Community Notes
     </div>
     <div style="color:#57606a;">Verifying...</div>
   `;
@@ -346,7 +346,7 @@ async function addNoteToPost(post) {
           <path d="M12 8v4"></path>
           <circle cx="12" cy="16" r="1"></circle>
         </svg>
-        AI Truth Checker
+        AI Community Notes
       </div>
       <div style="color:#dc3545;">Error: Unable to verify content. ${escapeHtml(
       error.message
