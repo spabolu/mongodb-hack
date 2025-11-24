@@ -5,7 +5,6 @@ This allows the browser extension to call the agent via REST API.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -187,7 +186,12 @@ async def verify_content(request: VerifyRequest):
         )
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for running the FastAPI app via console scripts."""
     import uvicorn
 
     uvicorn.run(fastapi_app, host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    main()
