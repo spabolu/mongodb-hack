@@ -1,11 +1,17 @@
 # Reddit Community Notes – AI-powered Truth Checker
 
-This project augments Reddit with an AI-powered “Truth Checker” that runs directly in the browser.  
+This project improves Reddit with an AI-powered "Truth Checker" that runs directly in the browser. It is inspired by X/Twitter's Community Notes feature and the rise of misinformation on forums like Reddit.
+
 It consists of three main pieces:
 
 1. **Frontend Chrome Extension** (`reddit-extension/`): injects a panel into eligible Reddit posts (r/news, r/politics, r/TheOnion) and calls the backend to display the verification results.
-2. **Backend FastAPI Server** (`api_server.py`, `main.py`): wraps the `mcp-agent` example app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
+2. **Backend FastAPI Server** (`src/app.py`, `src/main.py`): wraps the `mcp-agent` app, exposes a `/verify` endpoint, and orchestrates Tavily searches plus LLM reasoning.
 3. **AI + MCP Tooling**: Tavily MCP server for search, `mcp-agent` for workflow management, and OpenAI/Gemini LLM backends via augmented LLMs.
+
+## 🌐 Live Services
+
+- **MCP Agent**: [https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/](https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/)
+- **FastAPI Backend**: [https://cef5c5f9c1f3.ngrok-free.app/](https://cef5c5f9c1f3.ngrok-free.app/)
 
 ## Example Screenshot
 <table>
@@ -23,7 +29,7 @@ It consists of three main pieces:
 ---
 #
 ## Tech stack
-- Tavily MCP search/extract/crawl
+- Tavily MCP (search/extract/crawl tools)
 - LastMile's MCP-Agent
 - MongoDB (`pymongo`) driver
 - OpenAI/Gemini LLMs
@@ -59,9 +65,29 @@ It consists of three main pieces:
 
 ## Backend (FastAPI + MCP Agent)
 
-* The core logic lives in `main.py` (adapted `mcp-agent` example).
-* `api_server.py` wraps the MCP app with FastAPI and exposes `/verify`.
+* The core MCP agent logic lives in `src/main.py` (adapted `mcp-agent` example).
+* `src/app.py` wraps the MCP app with FastAPI and exposes `/verify` endpoint.
 * Uses Tavily MCP server to fetch reputable sources and OpenAI/Gemini LLMs (via `OpenAIAugmentedLLM`).
+* MongoDB caching layer (`src/db/`) for storing verification results to reduce API costs. Uses hashing to store unique id of the Reddit post URL.
+
+### Project Structure
+
+```
+.
+├── src/
+│   ├── app.py              # FastAPI server with /verify endpoint
+│   ├── main.py             # MCP agent with verify_content_agent tool
+│   └── db/
+│       ├── cache.py         # MongoDB cache for verification results
+│       ├── mongodb.py       # MongoDB connection management
+│       └── init_indexes.py  # Database index initialization
+├── reddit-extension/        # Chrome extension frontend
+│   ├── content.js          # Extension content script
+│   └── manifest.json       # Extension manifest
+├── mcp_agent.config.yaml   # MCP agent configuration
+├── mcp_agent.secrets.yaml  # API keys (references .env)
+└── pyproject.toml          # Python dependencies
+```
 
 ### Prerequisites
 
@@ -69,7 +95,7 @@ It consists of three main pieces:
 * [uv](https://github.com/astral-sh/uv) for managing the virtual environment.
 * Tavily API key and LLM provider API keys (OpenAI/Gemini) — stored in secrets files / `.env`.
 * MongoDB (Atlas or local) — optional but recommended for caching verification results.
-* Highly recommend using OpenAI `gpt-5-mini-2025-08-07` model for best performance.
+* Highly recommend using OpenAI `gpt-5-mini-2025-08-07` model for efficiency and/or `gpt-5.1-2025-11-13` model for best accuracy.
 
 ### Installation & Running
 
@@ -78,12 +104,15 @@ It consists of three main pieces:
 uv sync
 
 # Start the FastAPI server
-uv run uvicorn api_server:fastapi_app --reload
-# Or run this command
-uv run python api_server.py
+uv run uvicorn src.app:fastapi_app --reload --host 0.0.0.0 --port 8000
+
+# Or use the console script entry point
+uv run app
 ```
 
 The server listens on `http://0.0.0.0:8000`. The browser extension should point there for verification requests.
+
+**Note**: The extension is currently configured to use the deployed backend at `https://cef5c5f9c1f3.ngrok-free.app/verify`. To use a local server, update the URL in `reddit-extension/content.js`.
 
 ---
 
@@ -92,12 +121,12 @@ The server listens on `http://0.0.0.0:8000`. The browser extension should point 
 | Component | Purpose |
 |-----------|---------|
 | **Tavily MCP server** | Performs date-bounded searches on reputable domains using `topic="news"` to filter for news sources, returning structured search results with publication dates. |
-| **mcp-agent** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
+| **`mcp-agent`** | Provides the MCP workflow framework, agent lifecycle, logging, and server connections. |
 | **OpenAI / Gemini LLMs** | Reason over Tavily results, enforce JSON schema, and summarize verification. `OpenAIAugmentedLLM` is currently configured with the `gpt-5-mini-2025-08-07` model. |
 
 The workflow enforces:
 * Date filters aligned with the Reddit post timestamp.
-* `topic="news"` parameter in Tavily searches to prioritize news sources with publication dates.
+* Use the `topic="news"` parameter in Tavily searches to prioritize recent news sources with publication dates (thanks to Yash for suggesting this feature).
 * Reputable domain whitelists.
 * Satire/fake-source detection (don't treat original satire articles as "proof").
 * Returning multiple independent sources with descriptions.
@@ -178,10 +207,29 @@ mcp:
 ## Development Workflow
 
 1. Update dependencies or code.
-2. Run `uv run python main.py` (or the specific test script) to ensure the agent still returns valid JSON with at least two sources.
-3. Start the FastAPI server (`uv run uvicorn api_server:fastapi_app --reload`).
+2. Run `uv run python src/main.py` (or the specific test script) to ensure the agent still returns valid JSON with at least two sources.
+3. Start the FastAPI server (`uv run uvicorn src.app:fastapi_app --reload`).
 4. Load the Chrome extension and verify posts.
-5. Check the terminal logs for “LLM Raw Response” and “Parsed JSON” to debug any schema issues.
+5. Check the terminal logs for "LLM Raw Response" and "Parsed JSON" to debug any schema issues.
 
-With this setup, you can quickly iterate on the Chrome UI, backend logic, or the MCP/L LM instructions to improve verification quality.
+With this setup, you can quickly iterate on the Chrome UI, backend logic, or the MCP/LLM instructions to improve verification quality.
 
+## API Endpoints
+
+### `GET /`
+Health check endpoint. Returns `{"status": "ok", "message": "Reddit Content Verifier API is running"}`.
+
+### `POST /verify`
+Main verification endpoint. Accepts a JSON body with:
+- `url`: The URL of the Reddit post or linked article
+- `title`: Post title
+- `subtext`: Post body text (first 300 characters)
+- `postDate`: Post timestamp (ISO format or relative time)
+
+Returns a JSON response with:
+- `is_correct`: `true`, `false`, or `null` (unable to verify)
+- `explanation`: Human-readable explanation
+- `sources`: Array of source objects with `source_url` and `source_description`
+- `status`: Always `"success"`
+
+The endpoint checks MongoDB cache first, and only calls the MCP agent if no cached result exists.
