@@ -13,6 +13,85 @@ It consists of three main pieces:
 - **MCP Agent**: [https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/](https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/)
 - **FastAPI Backend**: [https://cef5c5f9c1f3.ngrok-free.app/](https://cef5c5f9c1f3.ngrok-free.app/)
 
+## 🚀 Quick Start Guide for Users
+
+### What is This?
+
+Reddit Community Notes is a free browser extension that automatically fact-checks posts on Reddit. It works like Twitter's Community Notes—when you visit a news post, it shows you whether the information is verified, disputed, or needs more context.
+
+### How to Install (3 Simple Steps)
+
+1. **Download the Extension**
+   - Click the green "Code" button at the top of this page
+   - Select "Download ZIP"
+   - Extract the ZIP file to a folder on your computer
+
+2. **Open Chrome Extensions**
+   - Open Google Chrome
+   - Type `chrome://extensions` in the address bar and press Enter
+   - Turn on **Developer Mode** (toggle switch in the top-right corner)
+
+3. **Load the Extension**
+   - Click **"Load unpacked"** button
+   - Select the `reddit-extension` folder from the downloaded files
+   - You're done! The extension is now active
+
+### How to Use It
+
+1. **Visit Reddit**
+   - Go to [reddit.com](https://www.reddit.com)
+   - Navigate to one of these subreddits:
+     - `r/news` - News articles and current events
+     - `r/politics` - Political news and discussions
+     - `r/TheOnion` - Satirical news (to see how it detects satire)
+
+2. **View Any Post**
+   - Click on any post in these subreddits
+   - Scroll down below the post content
+   - You'll see an **"AI Truth Checker"** panel appear automatically
+
+3. **Read the Results**
+   - The panel will show one of three statuses:
+     - ✅ **Correct** (green) - The information has been verified by reputable sources
+     - ❌ **Not Correct** (red) - The information is disputed or inaccurate
+     - ⚠️ **Unable to Verify** (gray) - Not enough information available to verify
+   - Each result includes:
+     - An explanation of why it was marked that way
+     - Links to news sources that support or dispute the claim
+     - Publication dates to show when the information was verified
+
+### What to Expect
+
+- **First Time**: Verification takes 10-20 seconds while the AI searches for sources
+- **Cached Results**: If you or someone else verified the same post before, results appear instantly
+- **Source Links**: Click any source link to read the original article
+- **Automatic**: The extension works automatically—no buttons to click
+
+### Example Posts to Try
+
+Want to see it in action? Try these posts:
+
+1. [France investigates Musk's Grok chatbot](https://www.reddit.com/r/news/comments/1p33pck/france_will_investigate_musks_grok_chatbot_after/)
+2. [The Onion satire post](https://www.reddit.com/r/TheOnion/comments/1ok7fzi/china_agrees_to_purchase_11_us_soybeans/)
+3. [NYC air traffic controllers](https://www.reddit.com/r/news/comments/1olrogq/80_of_nycarea_air_traffic_controllers_absent_amid/)
+
+### Troubleshooting
+
+**The panel doesn't appear:**
+- Make sure you're on `r/news`, `r/politics`, or `r/TheOnion`
+- Refresh the page (F5 or Ctrl+R)
+- Check that the extension is enabled in `chrome://extensions`
+
+**It says "Error" or "Unable to verify":**
+- This is normal for very new posts or obscure topics
+- The backend might be temporarily unavailable—try again in a few minutes
+
+**Want to disable it?**
+- Go to `chrome://extensions`
+- Toggle off the "Reddit Community Notes" extension
+
+---
+
 ## Example Screenshot
 <table>
   <tr>
