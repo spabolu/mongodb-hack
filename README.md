@@ -13,6 +13,22 @@ It consists of three main pieces:
 - **MCP Agent**: [https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/](https://1eb4wbtqipdcbkqwm8ve7wtnmo9mk0wk.deployments.mcp-agent.com/)
 - **FastAPI Backend**: [https://cef5c5f9c1f3.ngrok-free.app/](https://cef5c5f9c1f3.ngrok-free.app/)
 
+---
+
+## Example Screenshot
+<table>
+  <tr>
+    <td>
+      <img src="./SCR-20251123-mifh.png" alt="Real news post" width="100%">
+    </td>
+    <td>
+      <img src="./SCR-20251123-mhmi.png" alt="Fake/satire news post" width="100%">
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 🚀 Quick Start Guide for Users
 
 ### What is This?
@@ -89,21 +105,6 @@ Want to see it in action? Try these posts:
 **Want to disable it?**
 - Go to `chrome://extensions`
 - Toggle off the "Reddit Community Notes" extension
-
----
-
-## Example Screenshot
-<table>
-  <tr>
-    <td>
-      <img src="./SCR-20251123-mifh.png" alt="Real news post" width="100%">
-    </td>
-    <td>
-      <img src="./SCR-20251123-mhmi.png" alt="Fake/satire news post" width="100%">
-    </td>
-  </tr>
-</table>
-
 
 ---
 #
